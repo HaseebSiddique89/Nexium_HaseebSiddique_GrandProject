@@ -11,8 +11,8 @@ import { getMoodEmoji, getMoodColor } from '@/lib/utils'
 
 interface CalendarEntry {
   date: string
-  moodEntries: any[]
-  journalEntries: any[]
+  moodEntries: Array<{ mood: string; energy_level?: number; notes?: string; created_at: string }>
+  journalEntries: Array<{ title?: string; content?: string; mood?: string; tags?: string[]; created_at: string }>
 }
 
 export default function CalendarPage() {
@@ -58,8 +58,7 @@ export default function CalendarPage() {
       if (journalError) throw journalError
 
       // Create calendar data
-      const days = eachDayOfInterval({ start: startDate, end: endDate })
-      const calendarData = days.map(day => {
+      const calendarData = eachDayOfInterval({ start: startDate, end: endDate }).map(day => {
         const dateStr = format(day, 'yyyy-MM-dd')
         const dayMoodEntries = moodEntries?.filter(entry => 
           isSameDay(new Date(entry.created_at), day)

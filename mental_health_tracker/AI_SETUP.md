@@ -1,212 +1,123 @@
-# AI Setup Guide for Mental Health Tracker
+# AI Features Setup Guide
 
-This guide will help you enable real AI features in your Mental Health Tracker application using Google's **free** Gemini API.
+## Overview
 
-## 🚀 Quick Start
+The Mental Health Tracker includes AI-powered features for enhanced insights and analysis. These features are **optional** - the app works perfectly without them using basic pattern analysis.
 
-### 1. Get a Google AI Studio API Key (FREE!)
+## AI Features Available
 
-1. Go to [Google AI Studio](https://aistudio.google.com/)
-2. Sign in with your Google account
-3. Click "Get API key" in the top right
-4. Create a new API key or use an existing one
-5. Copy the generated API key
+1. **Sentiment Analysis** - Analyzes the emotional tone of journal entries
+2. **Predictive Insights** - Predicts future mood trends and patterns
+3. **Personalized Recommendations** - Provides actionable mental health advice
+4. **AI-Generated Insights** - Advanced pattern recognition and analysis
 
-### 2. Configure Environment Variables
+## Setup Instructions
 
-Create or update your `.env.local` file in the project root:
+### Option 1: Basic Analysis (No Setup Required)
 
-```env
-# Supabase Configuration (if not already set)
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+The app works immediately with basic analysis features:
+- Mood pattern analysis
+- Journal entry statistics
+- Basic recommendations
+- Streak tracking
 
-# AI Configuration (FREE with Gemini!)
-NEXT_PUBLIC_AI_PROVIDER=gemini
-NEXT_PUBLIC_AI_MODEL=gemini-1.5-flash
-NEXT_PUBLIC_AI_API_KEY=your_gemini_api_key_here
-```
+### Option 2: Enhanced AI Features
 
-### 3. Restart Your Development Server
+To enable AI-powered features, follow these steps:
+
+#### 1. Create a `.env.local` file
+
+Copy the example environment variables:
 
 ```bash
-# Stop the current server (Ctrl+C)
-# Then restart
+# Supabase Configuration (Required)
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url_here
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+
+# App Configuration
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# AI Configuration (Optional - for enhanced AI features)
+# For Gemini AI (predictions, insights, recommendations)
+NEXT_PUBLIC_AI_PROVIDER=gemini
+NEXT_PUBLIC_AI_MODEL=gemini-2.5-flash-lite
+NEXT_PUBLIC_AI_API_KEY=your_gemini_api_key_here
+
+# For Hugging Face (sentiment analysis)
+NEXT_PUBLIC_HUGGINGFACE_TOKEN=your_huggingface_token_here
+```
+
+#### 2. Get API Keys
+
+**For Gemini AI (Recommended):**
+1. Go to [Google AI Studio](https://aistudio.google.com/)
+2. Create a new API key
+3. Add it to `NEXT_PUBLIC_AI_API_KEY`
+
+**For Hugging Face (Optional):**
+1. Go to [Hugging Face](https://huggingface.co/settings/tokens)
+2. Create a new access token
+3. Add it to `NEXT_PUBLIC_HUGGINGFACE_TOKEN`
+
+#### 3. Restart the Development Server
+
+```bash
 pnpm dev
 ```
 
-## 🤖 AI Features Available
+## Error Handling
 
-### With Real AI Enabled (FREE with Gemini!):
-- **Sentiment Analysis**: Deep understanding of emotional content in journal entries
-- **Predictive Insights**: ML-based mood predictions and trend analysis
-- **Personalized Recommendations**: Context-aware, actionable suggestions
-- **Emotional Pattern Detection**: Advanced pattern recognition in your data
-- **Natural Language Understanding**: Better analysis of journal content
+The app includes robust error handling:
 
-### Without AI (Fallback Mode):
-- **Basic Pattern Analysis**: Rule-based mood and journal analysis
-- **Keyword Detection**: Simple word matching for insights
-- **Statistical Calculations**: Averages, streaks, and basic trends
+- **Missing API Keys**: Falls back to basic analysis
+- **API Rate Limits**: Automatically switches to basic analysis
+- **Network Errors**: Graceful fallback with user-friendly messages
+- **Invalid Responses**: Manual parsing and fallback mechanisms
 
-## 🔧 Advanced Configuration
+## Troubleshooting
 
-### Using Different AI Models
+### "Failed to fetch" Errors
 
-#### Gemini Models (FREE!):
-```env
-NEXT_PUBLIC_AI_MODEL=gemini-1.5-flash    # Fast, cost-effective (recommended)
-NEXT_PUBLIC_AI_MODEL=gemini-1.5-pro       # More powerful, still free
-```
+These errors occur when:
+1. API keys are missing or invalid
+2. Network connectivity issues
+3. API rate limits exceeded
 
-#### OpenAI Models (Paid):
-```env
-NEXT_PUBLIC_AI_PROVIDER=openai
-NEXT_PUBLIC_AI_MODEL=gpt-3.5-turbo        # Fast, cost-effective
-NEXT_PUBLIC_AI_MODEL=gpt-4                # More powerful, higher cost
-NEXT_PUBLIC_AI_MODEL=gpt-4-turbo          # Balanced performance
-```
+**Solution**: The app automatically falls back to basic analysis. Check your API keys and try again.
 
-#### Anthropic Claude (Alternative):
-```env
-NEXT_PUBLIC_AI_PROVIDER=anthropic
-NEXT_PUBLIC_AI_MODEL=claude-3-sonnet
-NEXT_PUBLIC_AI_API_KEY=your_anthropic_api_key
-```
+### Rate Limit Issues
 
-### Custom AI Endpoint
-If you have your own AI service:
-```env
-NEXT_PUBLIC_AI_PROVIDER=custom
-NEXT_PUBLIC_AI_ENDPOINT=https://your-ai-service.com/api
-NEXT_PUBLIC_AI_API_KEY=your_custom_api_key
-```
+Free tier limits:
+- **Gemini**: 1000 requests/day
+- **Hugging Face**: Varies by model
 
-## 💰 Cost Considerations
+**Solution**: Wait for quota reset or upgrade to paid plans.
 
-### Gemini API (FREE!):
-- **gemini-1.5-flash**: Completely FREE
-- **gemini-1.5-pro**: Completely FREE
-- **No usage limits** for reasonable usage
-- **No credit card required**
+## Feature Comparison
 
-### OpenAI Pricing (as of 2024):
-- **GPT-3.5-turbo**: ~$0.002 per 1K tokens
-- **GPT-4**: ~$0.03 per 1K tokens
-- **GPT-4-turbo**: ~$0.01 per 1K tokens
+| Feature | Basic Analysis | AI Enhanced |
+|---------|---------------|-------------|
+| Mood Tracking | ✅ | ✅ |
+| Journal Analysis | ✅ | ✅ |
+| Pattern Recognition | ✅ | ✅ |
+| Sentiment Analysis | Basic | Advanced AI |
+| Predictive Insights | Basic | AI-Powered |
+| Recommendations | Generic | Personalized |
+| Emotional Keywords | ❌ | ✅ |
+| Stress Indicators | ❌ | ✅ |
 
-### Estimated Monthly Costs:
-- **Gemini (Recommended)**: $0/month (FREE!)
-- **Light usage** (10 insights/day): $0/month with Gemini
-- **Moderate usage** (50 insights/day): $0/month with Gemini
-- **Heavy usage** (100+ insights/day): $0/month with Gemini
+## Security Notes
 
-## 🔒 Privacy & Security
+- API keys are stored in environment variables
+- No sensitive data is sent to AI services
+- All analysis happens server-side
+- User data remains in your Supabase database
 
-### Data Handling:
-- **Journal entries** are sent to AI services for analysis
-- **Mood data** is processed for patterns
-- **No personal identifiers** are included in AI requests
-- **Data is not stored** by AI providers beyond the request
-
-### Recommendations:
-- Review your journal entries before enabling AI
-- Consider using pseudonyms in sensitive entries
-- Monitor your API usage regularly
-- Use the basic analysis mode for maximum privacy
-
-## 🛠️ Troubleshooting
-
-### Common Issues:
-
-#### 1. "AI Powered" not showing
-- Check that your API key is correct
-- Ensure environment variables are loaded
-- Restart your development server
-
-#### 2. API errors in console
-- Verify your Google AI Studio account is active
-- Check API key permissions
-- Ensure the model name is correct
-
-#### 3. Slow response times
-- Try using `gemini-1.5-flash` for faster responses
-- Reduce the amount of data sent to AI
-- Check your internet connection
-
-#### 4. Fallback to basic analysis
-- This is normal when AI services are unavailable
-- Check your API key and network connection
-- The app will continue working with basic analysis
-
-### Debug Mode:
-Add this to your `.env.local` for detailed logging:
-```env
-NEXT_PUBLIC_DEBUG_AI=true
-```
-
-## 📊 Monitoring Usage
-
-### Check Gemini Usage:
-1. Go to [Google AI Studio](https://aistudio.google.com/)
-2. Navigate to "API keys" section
-3. Monitor your usage (FREE tier is very generous)
-
-### Set Usage Limits:
-1. Go to Google Cloud Console
-2. Set up billing alerts if needed
-3. Monitor usage in Google AI Studio
-
-## 🔄 Switching Between Modes
-
-### Enable AI (FREE with Gemini):
-```env
-NEXT_PUBLIC_AI_PROVIDER=gemini
-NEXT_PUBLIC_AI_API_KEY=your_gemini_key_here
-```
-
-### Disable AI (Basic Mode):
-```env
-NEXT_PUBLIC_AI_PROVIDER=local
-# Remove or comment out AI_API_KEY
-```
-
-## 🎯 Best Practices
-
-1. **Start with Gemini**: Use the free Gemini API for cost efficiency
-2. **Monitor Usage**: Check your Google AI Studio dashboard regularly
-3. **Test Thoroughly**: Try both AI and basic modes
-4. **Backup Data**: Ensure your Supabase data is backed up
-5. **Privacy First**: Review what data is sent to AI services
-
-## 🆘 Support
+## Support
 
 If you encounter issues:
-
-1. Check the browser console for error messages
-2. Verify your environment variables
-3. Test with a simple API call
-4. Check Google AI Studio service status
-5. Review the troubleshooting section above
-
-## 🚀 Next Steps
-
-Once AI is enabled:
-
-1. **Test the features**: Try adding mood entries and journal entries
-2. **Explore insights**: Visit the AI Insights page
-3. **Monitor usage**: Keep track of your API usage (FREE with Gemini!)
-4. **Customize**: Adjust the AI configuration as needed
-5. **Scale**: Consider upgrading to more powerful models if needed
-
----
-
-**Note**: The AI features are designed to enhance your mental health journey. They provide insights and recommendations but should not replace professional mental health care when needed.
-
-## 🎉 Why Choose Gemini?
-
-- **Completely FREE**: No costs, no credit card required
-- **High Quality**: Powered by Google's advanced AI models
-- **Fast**: Quick response times for real-time insights
-- **Reliable**: Google's infrastructure ensures high availability
-- **Privacy**: Google's strong privacy policies protect your data 
+1. Check the browser console for detailed error messages
+2. Verify your API keys are correct
+3. Ensure your environment variables are properly set
+4. The app will continue working with basic analysis even if AI features fail 

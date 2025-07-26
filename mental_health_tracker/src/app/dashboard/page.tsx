@@ -27,11 +27,12 @@ export default function DashboardPage() {
     currentStreak: 0,
     averageMood: 0,
   })
-  const [recentMoodEntries, setRecentMoodEntries] = useState<any[]>([])
-  const [recentJournalEntries, setRecentJournalEntries] = useState<any[]>([])
+  const [recentMoodEntries, setRecentMoodEntries] = useState<Array<{ mood: string; energy_level?: number; notes?: string; created_at: string }>>([])
+  const [recentJournalEntries, setRecentJournalEntries] = useState<Array<{ title?: string; content?: string; mood?: string; tags?: string[]; created_at: string }>>([])
   const [aiInsights, setAiInsights] = useState<EnhancedAIInsights | null>(null)
   const [aiEnabled, setAiEnabled] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [lastDataHash, setLastDataHash] = useState<string>('')
 
   useEffect(() => {
     if (user) {
@@ -98,17 +99,32 @@ export default function DashboardPage() {
       setRecentMoodEntries(moodEntries?.slice(0, 5) || [])
       setRecentJournalEntries(journalEntries?.slice(0, 3) || [])
 
-      // Generate enhanced AI insights
-      try {
-        const aiConfig = getAIConfig()
-        const aiStatus = isAIEnabled()
-        setAiEnabled(!!aiStatus)
+      // Check if data has changed before calling AI insights
+      const currentDataHash = JSON.stringify({
+        moodCount: moodEntries?.length || 0,
+        journalCount: journalEntries?.length || 0,
+        latestMood: moodEntries?.[0]?.created_at || '',
+        latestJournal: journalEntries?.[0]?.created_at || ''
+      })
 
-        const insights = await generateEnhancedAIInsights(user.id, aiConfig)
-        setAiInsights(insights)
-      } catch (error) {
-        console.error('Error generating AI insights:', error)
-        // Don't show error toast for AI insights as it's not critical
+      // Only generate AI insights if data has changed or we don't have insights yet
+      if (currentDataHash !== lastDataHash || !aiInsights) {
+        console.log('🔄 Data has changed, generating AI insights...')
+        setLastDataHash(currentDataHash)
+        
+        try {
+          const aiConfig = getAIConfig()
+          const aiStatus = isAIEnabled()
+          setAiEnabled(!!aiStatus)
+
+          const insights = await generateEnhancedAIInsights(user.id, aiConfig)
+          setAiInsights(insights)
+        } catch (error) {
+          console.error('Error generating AI insights:', error)
+          // Don't show error toast for AI insights as it's not critical
+        }
+      } else {
+        console.log('✅ Using existing AI insights (data unchanged)')
       }
 
     } catch (error) {
@@ -133,7 +149,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-600 mt-2">
-          Welcome back, {user?.email}! Here's your mental health overview.
+          Welcome back, {user?.email}! Here&apos;s your mental health overview.
         </p>
       </div>
 
@@ -301,7 +317,7 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {recentMoodEntries.length > 0 ? (
               recentMoodEntries.map((entry) => (
-                <div key={entry.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={entry.created_at} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <span className="text-2xl">{getMoodEmoji(entry.mood)}</span>
                     <div>
@@ -331,10 +347,10 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {recentJournalEntries.length > 0 ? (
               recentJournalEntries.map((entry) => (
-                <div key={entry.id} className="p-3 bg-gray-50 rounded-lg">
+                <div key={entry.created_at} className="p-3 bg-gray-50 rounded-lg">
                   <h3 className="font-medium text-gray-900 mb-1">{entry.title}</h3>
                   <p className="text-sm text-gray-600 mb-2">
-                    {entry.content.length > 100 ? `${entry.content.substring(0, 100)}...` : entry.content}
+                    {entry.content && (entry.content.length > 100 ? `${entry.content.substring(0, 100)}...` : entry.content)}
                   </p>
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-gray-500">{formatDate(new Date(entry.created_at))}</p>

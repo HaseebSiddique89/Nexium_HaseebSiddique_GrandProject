@@ -86,7 +86,7 @@ export default function LoginPage() {
 
         <div className="text-center">
           <p className="text-xs text-gray-500">
-            We'll send you a secure link to sign in instantly
+            We&apos;ll send you a secure link to sign in instantly
           </p>
         </div>
       </div>

@@ -63,7 +63,7 @@ export default function JournalPage() {
   }
 
   const getUniqueMoods = () => {
-    const moods = entries.map(entry => entry.mood).filter(Boolean)
+    const moods = entries.map(entry => entry.mood).filter((mood): mood is string => mood !== null)
     return [...new Set(moods)]
   }
 

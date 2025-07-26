@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { clearAICache } from '@/lib/ai-insights-enhanced'
 import { toast } from 'sonner'
 import { ArrowLeft, Save, Smile, Frown, Meh, Activity } from 'lucide-react'
 import Link from 'next/link'
@@ -71,6 +72,11 @@ export default function NewMoodEntryPage() {
         })
 
       if (error) throw error
+
+      // Clear AI cache to ensure fresh insights
+      if (user?.id) {
+        clearAICache(user.id)
+      }
 
       toast.success('Mood entry added successfully!')
       router.push('/dashboard/mood')

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { generateEnhancedAIInsights, type EnhancedAIInsights, type SentimentAnalysis, type PredictiveInsights } from '@/lib/ai-insights-enhanced'
+import { generateEnhancedAIInsights, type EnhancedAIInsights } from '@/lib/ai-insights-enhanced'
 import { getAIConfig, isAIEnabled } from '@/lib/ai-config'
 import { toast } from 'sonner'
 import {
@@ -12,14 +12,14 @@ import {
   Minus,
   Lightbulb,
   Target,
-  AlertTriangle,
-  CheckCircle,
   Activity,
   BarChart3,
   BookOpen,
   Sparkles,
   Settings,
-  Zap
+  Zap,
+  AlertTriangle,
+  CheckCircle
 } from 'lucide-react'
 
 export default function AIInsightsPage() {
@@ -42,6 +42,15 @@ export default function AIInsightsPage() {
       const aiConfig = getAIConfig()
       const aiStatus = isAIEnabled()
       setAiEnabled(Boolean(aiStatus))
+
+      // Debug AI configuration
+      console.log('🔧 AI Configuration Debug:')
+      console.log('  - AI Enabled:', aiStatus)
+      console.log('  - Provider:', aiConfig?.provider)
+      console.log('  - Model:', aiConfig?.model)
+      console.log('  - API Key Set:', !!aiConfig?.apiKey)
+      console.log('  - HuggingFace Token Set:', !!aiConfig?.huggingfaceToken)
+      console.log('  - Full Config:', aiConfig)
 
       const enhancedInsights = await generateEnhancedAIInsights(user.id, aiConfig)
       setInsights(enhancedInsights)
@@ -110,28 +119,36 @@ export default function AIInsightsPage() {
         </div>
       </div>
 
-      {!aiEnabled && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-start space-x-3">
-            <Brain className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <h3 className="text-sm font-medium text-blue-900">Enable Real AI</h3>
-              <p className="text-sm text-blue-700 mt-1">
-                Add your AI API key to get enhanced insights with real AI analysis. 
-                Currently using basic pattern analysis.
-              </p>
-              <div className="mt-3 text-xs text-blue-600">
-                <p>Add to your .env.local:</p>
-                <code className="block mt-1 bg-blue-100 p-2 rounded">
-                  NEXT_PUBLIC_AI_PROVIDER=openai<br/>
-                  NEXT_PUBLIC_AI_MODEL=gpt-3.5-turbo<br/>
-                  NEXT_PUBLIC_AI_API_KEY=your_api_key_here
-                </code>
+                           {!aiEnabled && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start space-x-3">
+              <Brain className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="text-sm font-medium text-blue-900">Enable Real AI</h3>
+                <p className="text-sm text-blue-700 mt-1">
+                  Add your AI API key to get enhanced insights with real AI analysis. 
+                  Currently using basic pattern analysis.
+                </p>
+                <div className="mt-3 text-xs text-blue-600">
+                  <p>Add to your .env.local:</p>
+                                    <code className="block mt-1 bg-blue-100 p-2 rounded">
+                     # For Gemini AI (predictions, insights, recommendations)<br/>
+                     NEXT_PUBLIC_AI_PROVIDER=gemini<br/>
+                     NEXT_PUBLIC_AI_MODEL=gemini-2.5-flash-lite<br/>
+                     NEXT_PUBLIC_AI_API_KEY=your_gemini_api_key_here<br/><br/>
+                     # For Hugging Face (sentiment analysis)<br/>
+                     NEXT_PUBLIC_HUGGINGFACE_TOKEN=your_huggingface_token_here
+                   </code>
+                  <p className="mt-2 text-red-600">
+                    <strong>Debug Info:</strong> Check browser console for AI configuration details
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+
 
       {insights && (
         <div className="space-y-6">

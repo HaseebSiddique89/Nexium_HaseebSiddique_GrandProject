@@ -79,7 +79,7 @@ export async function generateAIInsights(userId: string): Promise<AIInsights> {
   }
 }
 
-function analyzeMoodPatterns(moodEntries: any[]): MoodAnalysis {
+function analyzeMoodPatterns(moodEntries: Array<{ mood: string; energy_level?: number; notes?: string; created_at: string }>): MoodAnalysis {
   if (moodEntries.length === 0) {
     return {
       averageMood: 3,
@@ -111,7 +111,9 @@ function analyzeMoodPatterns(moodEntries: any[]): MoodAnalysis {
   // Find most frequent mood
   const moodCounts: Record<string, number> = {}
   moodEntries.forEach(entry => {
-    moodCounts[entry.mood] = (moodCounts[entry.mood] || 0) + 1
+    if (entry.mood) {
+      moodCounts[entry.mood] = (moodCounts[entry.mood] || 0) + 1
+    }
   })
   const mostFrequentMood = Object.entries(moodCounts).reduce((a, b) => a[1] > b[1] ? a : b)[0]
 
@@ -147,7 +149,7 @@ function analyzeMoodPatterns(moodEntries: any[]): MoodAnalysis {
   }
 }
 
-function analyzeJournalPatterns(journalEntries: any[]): JournalAnalysis {
+function analyzeJournalPatterns(journalEntries: Array<{ title?: string; content?: string; mood?: string; tags?: string[]; created_at: string }>): JournalAnalysis {
   if (journalEntries.length === 0) {
     return {
       commonThemes: [],
@@ -191,14 +193,16 @@ function analyzeJournalPatterns(journalEntries: any[]): JournalAnalysis {
   }
 }
 
-function analyzeEmotionalPatterns(moodEntries: any[]): string[] {
+function analyzeEmotionalPatterns(moodEntries: Array<{ mood?: string; content?: string }>): string[] {
   const patterns: string[] = []
   
   if (moodEntries.length === 0) return patterns
 
   const moodCounts: Record<string, number> = {}
   moodEntries.forEach(entry => {
-    moodCounts[entry.mood] = (moodCounts[entry.mood] || 0) + 1
+    if (entry.mood) {
+      moodCounts[entry.mood] = (moodCounts[entry.mood] || 0) + 1
+    }
   })
 
   const totalEntries = moodEntries.length
@@ -224,7 +228,7 @@ function analyzeEmotionalPatterns(moodEntries: any[]): string[] {
   return patterns
 }
 
-function identifyPositiveTrends(entries: any[]): string[] {
+function identifyPositiveTrends(entries: Array<{ mood?: string; content?: string; tags?: string[] }>): string[] {
   const trends: string[] = []
   
   if (entries.length < 2) return trends
@@ -235,8 +239,7 @@ function identifyPositiveTrends(entries: any[]): string[] {
   
   const positiveCount = recentEntries.filter(entry => 
     positiveKeywords.some(keyword => 
-      entry.content.toLowerCase().includes(keyword) || 
-      entry.title.toLowerCase().includes(keyword)
+      (entry.content && entry.content.toLowerCase().includes(keyword))
     )
   ).length
 
@@ -247,7 +250,7 @@ function identifyPositiveTrends(entries: any[]): string[] {
   return trends
 }
 
-function identifyAreasOfConcern(entries: any[]): string[] {
+function identifyAreasOfConcern(entries: Array<{ mood?: string; content?: string; tags?: string[] }>): string[] {
   const concerns: string[] = []
   
   if (entries.length === 0) return concerns
@@ -256,8 +259,7 @@ function identifyAreasOfConcern(entries: any[]): string[] {
   
   const concernCount = entries.filter(entry => 
     concernKeywords.some(keyword => 
-      entry.content.toLowerCase().includes(keyword) || 
-      entry.title.toLowerCase().includes(keyword)
+      (entry.content && entry.content.toLowerCase().includes(keyword))
     )
   ).length
 

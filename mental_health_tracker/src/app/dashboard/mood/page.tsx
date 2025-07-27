@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
 import { formatDate, getMoodEmoji, getMoodColor } from '@/lib/utils'
 import { Plus, Calendar, TrendingUp, BarChart3 } from 'lucide-react'
+import { fetchUserDataOptimized } from '@/lib/data-optimization'
 
 interface MoodEntry {
   id: string
@@ -27,22 +27,18 @@ export default function MoodTrackerPage() {
     }
   }, [user])
 
-  const fetchMoodEntries = async () => {
+  const fetchMoodEntries = useCallback(async () => {
+    if (!user) return
+    
     try {
-      const { data, error } = await supabase
-        .from('mood_entries')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setEntries(data || [])
+      const { moodEntries } = await fetchUserDataOptimized(user.id)
+      setEntries(moodEntries)
     } catch (error) {
       console.error('Error fetching mood entries:', error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
 
   const getMoodStats = () => {
     if (!entries.length) return { averageMood: 0, totalEntries: 0, currentStreak: 0 }

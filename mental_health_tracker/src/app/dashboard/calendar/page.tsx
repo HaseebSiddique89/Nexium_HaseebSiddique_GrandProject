@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { Calendar, ChevronLeft, ChevronRight, Plus, BarChart3, BookOpen } from 'lucide-react'
 import Link from 'next/link'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns'
 import { getMoodEmoji, getMoodColor } from '@/lib/utils'
+import { fetchUserDataOptimized } from '@/lib/data-optimization'
+import { CalendarSkeleton } from '@/components/LoadingSkeleton'
 
 interface CalendarEntry {
   date: string
@@ -27,7 +28,7 @@ export default function CalendarPage() {
     }
   }, [user, currentDate])
 
-  const fetchCalendarData = async () => {
+  const fetchCalendarData = useCallback(async () => {
     if (!user) return
 
     setLoading(true)
@@ -35,37 +36,29 @@ export default function CalendarPage() {
       const startDate = startOfMonth(currentDate)
       const endDate = endOfMonth(currentDate)
 
-      // Fetch mood entries for the month
-      const { data: moodEntries, error: moodError } = await supabase
-        .from('mood_entries')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-        .order('created_at', { ascending: false })
+      // Use optimized data fetching
+      const { moodEntries, journalEntries } = await fetchUserDataOptimized(user.id)
 
-      if (moodError) throw moodError
+      // Filter entries for the current month
+      const monthMoodEntries = moodEntries.filter(entry => {
+        const entryDate = new Date(entry.created_at)
+        return entryDate >= startDate && entryDate <= endDate
+      })
 
-      // Fetch journal entries for the month
-      const { data: journalEntries, error: journalError } = await supabase
-        .from('journal_entries')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-        .order('created_at', { ascending: false })
-
-      if (journalError) throw journalError
+      const monthJournalEntries = journalEntries.filter(entry => {
+        const entryDate = new Date(entry.created_at)
+        return entryDate >= startDate && entryDate <= endDate
+      })
 
       // Create calendar data
       const calendarData = eachDayOfInterval({ start: startDate, end: endDate }).map(day => {
         const dateStr = format(day, 'yyyy-MM-dd')
-        const dayMoodEntries = moodEntries?.filter(entry => 
+        const dayMoodEntries = monthMoodEntries.filter(entry => 
           isSameDay(new Date(entry.created_at), day)
-        ) || []
-        const dayJournalEntries = journalEntries?.filter(entry => 
+        )
+        const dayJournalEntries = monthJournalEntries.filter(entry => 
           isSameDay(new Date(entry.created_at), day)
-        ) || []
+        )
 
         return {
           date: dateStr,
@@ -81,7 +74,7 @@ export default function CalendarPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user, currentDate])
 
   const previousMonth = () => {
     setCurrentDate(subMonths(currentDate, 1))
@@ -117,11 +110,7 @@ export default function CalendarPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    )
+    return <CalendarSkeleton />
   }
 
   const days = eachDayOfInterval({ 

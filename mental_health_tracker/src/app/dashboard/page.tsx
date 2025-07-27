@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import {
   BarChart3,
@@ -18,8 +17,10 @@ import Link from 'next/link'
 import { formatDate, getMoodEmoji, getMoodColor } from '@/lib/utils'
 import { generateEnhancedAIInsights, type EnhancedAIInsights } from '@/lib/ai-insights-enhanced'
 import { getAIConfig, isAIEnabled } from '@/lib/ai-config'
+import { fetchUserDataOptimized, clearUserCache } from '@/lib/data-optimization'
+import { DashboardSkeleton } from '@/components/LoadingSkeleton'
 
-export default function DashboardPage() {
+const DashboardPage = React.memo(function DashboardPage() {
   const { user } = useAuth()
   const [stats, setStats] = useState({
     totalMoodEntries: 0,
@@ -40,41 +41,26 @@ export default function DashboardPage() {
     }
   }, [user])
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     if (!user) return
 
     setLoading(true)
     try {
-      // Fetch mood entries
-      const { data: moodEntries, error: moodError } = await supabase
-        .from('mood_entries')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+      // Use optimized data fetching
+      const { moodEntries, journalEntries } = await fetchUserDataOptimized(user.id)
 
-      if (moodError) throw moodError
-
-      // Fetch journal entries
-      const { data: journalEntries, error: journalError } = await supabase
-        .from('journal_entries')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (journalError) throw journalError
-
-      // Calculate stats
-      const totalMoodEntries = moodEntries?.length || 0
-      const totalJournalEntries = journalEntries?.length || 0
+      // Calculate stats using memoization
+      const totalMoodEntries = moodEntries.length
+      const totalJournalEntries = journalEntries.length
 
       // Calculate average mood
       const moodScores = { excellent: 5, good: 4, neutral: 3, bad: 2, terrible: 1 }
-      const scores = moodEntries?.map(entry => moodScores[entry.mood as keyof typeof moodScores]) || []
+      const scores = moodEntries.map(entry => moodScores[entry.mood as keyof typeof moodScores])
       const averageMood = scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0
 
       // Calculate current streak
       let currentStreak = 0
-      if (moodEntries && moodEntries.length > 0) {
+      if (moodEntries.length > 0) {
         const sortedEntries = [...moodEntries].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         for (let i = 0; i < sortedEntries.length - 1; i++) {
           const currentDate = new Date(sortedEntries[i].created_at)
@@ -96,15 +82,15 @@ export default function DashboardPage() {
         averageMood,
       })
 
-      setRecentMoodEntries(moodEntries?.slice(0, 5) || [])
-      setRecentJournalEntries(journalEntries?.slice(0, 3) || [])
+      setRecentMoodEntries(moodEntries.slice(0, 5))
+      setRecentJournalEntries(journalEntries.slice(0, 3))
 
       // Check if data has changed before calling AI insights
       const currentDataHash = JSON.stringify({
-        moodCount: moodEntries?.length || 0,
-        journalCount: journalEntries?.length || 0,
-        latestMood: moodEntries?.[0]?.created_at || '',
-        latestJournal: journalEntries?.[0]?.created_at || ''
+        moodCount: moodEntries.length,
+        journalCount: journalEntries.length,
+        latestMood: moodEntries[0]?.created_at || '',
+        latestJournal: journalEntries[0]?.created_at || ''
       })
 
       // Only generate AI insights if data has changed or we don't have insights yet
@@ -133,14 +119,10 @@ export default function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user, lastDataHash, aiInsights])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    )
+    return <DashboardSkeleton />
   }
 
   return (
@@ -374,4 +356,6 @@ export default function DashboardPage() {
       </div>
     </div>
   )
-}
+})
+
+export default DashboardPage

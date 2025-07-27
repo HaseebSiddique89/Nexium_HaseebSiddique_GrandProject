@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
 import { formatDate, getMoodEmoji } from '@/lib/utils'
 import { Plus, BookOpen, Calendar, Search, Tag } from 'lucide-react'
+import { fetchUserDataOptimized } from '@/lib/data-optimization'
 
 interface JournalEntry {
   id: string
@@ -30,22 +30,18 @@ export default function JournalPage() {
     }
   }, [user])
 
-  const fetchJournalEntries = async () => {
+  const fetchJournalEntries = useCallback(async () => {
+    if (!user) return
+    
     try {
-      const { data, error } = await supabase
-        .from('journal_entries')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setEntries(data || [])
+      const { journalEntries } = await fetchUserDataOptimized(user.id)
+      setEntries(journalEntries)
     } catch (error) {
       console.error('Error fetching journal entries:', error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
 
   const filteredEntries = entries.filter(entry => {
     const matchesSearch = entry.title.toLowerCase().includes(searchTerm.toLowerCase()) ||

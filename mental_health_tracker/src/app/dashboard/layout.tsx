@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import Navigation from '@/components/Navigation'
+import { preloadCriticalData } from '@/lib/data-optimization'
 
 export default function DashboardLayout({
   children,
@@ -18,6 +19,14 @@ export default function DashboardLayout({
       router.push('/auth/login')
     }
   }, [user, loading, router])
+
+  // Preload critical data when user is authenticated
+  useEffect(() => {
+    if (user && !loading) {
+      // Preload data in background for better perceived performance
+      preloadCriticalData(user.id)
+    }
+  }, [user, loading])
 
   if (loading) {
     return (

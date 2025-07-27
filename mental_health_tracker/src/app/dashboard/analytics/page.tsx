@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
 import { formatDate, getMoodEmoji, getMoodColor } from '@/lib/utils'
 import { BarChart3, TrendingUp, Calendar, Activity, Target } from 'lucide-react'
+import { fetchAnalyticsDataOptimized } from '@/lib/data-optimization'
 
 interface MoodEntry {
   id: string
@@ -31,34 +31,19 @@ export default function AnalyticsPage() {
     }
   }, [user])
 
-  const fetchAnalyticsData = async () => {
+  const fetchAnalyticsData = useCallback(async () => {
+    if (!user) return
+    
     try {
-      // Fetch mood entries
-      const { data: moodData, error: moodError } = await supabase
-        .from('mood_entries')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-
-      if (moodError) throw moodError
-
-      // Fetch journal entries
-      const { data: journalData, error: journalError } = await supabase
-        .from('journal_entries')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-
-      if (journalError) throw journalError
-
-      setMoodEntries(moodData || [])
-      setJournalEntries(journalData || [])
+      const { moodEntries, journalEntries } = await fetchAnalyticsDataOptimized(user.id)
+      setMoodEntries(moodEntries)
+      setJournalEntries(journalEntries)
     } catch (error) {
       console.error('Error fetching analytics data:', error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
 
   const getMoodDistribution = () => {
     const distribution: Record<string, number> = {}

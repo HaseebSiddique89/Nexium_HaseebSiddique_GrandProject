@@ -1,125 +1,139 @@
 import { supabase } from './supabase'
 
-/**
- * Optimized data fetching utilities for better performance
- */
+// In-memory cache for better performance
+const dataCache = new Map<string, { data: any; timestamp: number; ttl: number }>()
 
-// Cache for frequently accessed data
-const dataCache = new Map<string, { data: any; timestamp: number }>()
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+// Cache TTL (Time To Live) - 5 minutes
+const CACHE_TTL = 5 * 60 * 1000
 
-/**
- * Fetch user data with optimized parallel requests
- */
+// Optimized data fetching with caching
 export async function fetchUserDataOptimized(userId: string) {
   const cacheKey = `user_data_${userId}`
   const cached = dataCache.get(cacheKey)
   
-  if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+  // Return cached data if still valid
+  if (cached && Date.now() - cached.timestamp < cached.ttl) {
     console.log('📦 Using cached user data')
     return cached.data
   }
 
-  console.log('🔄 Fetching fresh user data')
+  console.log('🔄 Fetching fresh user data...')
   
-  // Parallel data fetching for better performance
-  const [moodResult, journalResult] = await Promise.all([
-    supabase
-      .from('mood_entries')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(50), // Limit to recent entries for dashboard
-    
-    supabase
-      .from('journal_entries')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(30) // Limit to recent entries for dashboard
-  ])
+  try {
+    // Parallel data fetching for better performance
+    const [moodResult, journalResult] = await Promise.all([
+      supabase
+        .from('mood_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(100), // Limit for performance
+      supabase
+        .from('journal_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(100) // Limit for performance
+    ])
 
-  if (moodResult.error) throw moodResult.error
-  if (journalResult.error) throw journalResult.error
+    const data = {
+      moodEntries: moodResult.data || [],
+      journalEntries: journalResult.data || []
+    }
 
-  const data = {
-    moodEntries: moodResult.data || [],
-    journalEntries: journalResult.data || [],
-    timestamp: Date.now()
+    // Cache the result
+    dataCache.set(cacheKey, {
+      data,
+      timestamp: Date.now(),
+      ttl: CACHE_TTL
+    })
+
+    return data
+  } catch (error) {
+    console.error('Error fetching user data:', error)
+    throw error
   }
-
-  // Cache the result
-  dataCache.set(cacheKey, { data, timestamp: Date.now() })
-  
-  return data
 }
 
-/**
- * Fetch analytics data with optimized queries
- */
+// Optimized analytics data fetching
 export async function fetchAnalyticsDataOptimized(userId: string) {
-  const cacheKey = `analytics_${userId}`
+  const cacheKey = `analytics_data_${userId}`
   const cached = dataCache.get(cacheKey)
   
-  if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+  if (cached && Date.now() - cached.timestamp < cached.ttl) {
+    console.log('📦 Using cached analytics data')
     return cached.data
   }
 
-  // Use more specific queries for analytics
-  const [moodResult, journalResult] = await Promise.all([
-    supabase
-      .from('mood_entries')
-      .select('mood, energy_level, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false }),
-    
-    supabase
-      .from('journal_entries')
-      .select('title, content, mood, tags, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-  ])
-
-  if (moodResult.error) throw moodResult.error
-  if (journalResult.error) throw journalResult.error
-
-  const data = {
-    moodEntries: moodResult.data || [],
-    journalEntries: journalResult.data || [],
-    timestamp: Date.now()
-  }
-
-  dataCache.set(cacheKey, { data, timestamp: Date.now() })
+  console.log('🔄 Fetching fresh analytics data...')
   
-  return data
+  try {
+    const [moodResult, journalResult] = await Promise.all([
+      supabase
+        .from('mood_entries')
+        .select('mood, energy_level, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('journal_entries')
+        .select('title, content, mood, tags, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+    ])
+
+    const data = {
+      moodEntries: moodResult.data || [],
+      journalEntries: journalResult.data || []
+    }
+
+    dataCache.set(cacheKey, {
+      data,
+      timestamp: Date.now(),
+      ttl: CACHE_TTL
+    })
+
+    return data
+  } catch (error) {
+    console.error('Error fetching analytics data:', error)
+    throw error
+  }
 }
 
-/**
- * Clear cache for a specific user
- */
+// Clear cache functions
 export function clearUserCache(userId: string) {
   const keysToDelete = Array.from(dataCache.keys()).filter(key => key.includes(userId))
   keysToDelete.forEach(key => dataCache.delete(key))
-  console.log(`🗑️ Cleared ${keysToDelete.length} cache entries for user ${userId}`)
+  console.log('🗑️ Cleared cache for user:', userId)
 }
 
-/**
- * Clear all cache
- */
 export function clearAllCache() {
   dataCache.clear()
-  console.log('🗑️ Cleared all data cache')
+  console.log('🗑️ Cleared all cache')
 }
 
-/**
- * Preload critical data for better perceived performance
- */
+// Preload critical data in background
 export async function preloadCriticalData(userId: string) {
   try {
-    // Preload dashboard data in background
-    await fetchUserDataOptimized(userId)
-    console.log('⚡ Preloaded critical data')
+    // Preload in background without blocking UI
+    setTimeout(async () => {
+      await fetchUserDataOptimized(userId)
+      console.log('🚀 Preloaded critical data for user:', userId)
+    }, 100)
   } catch (error) {
-    console.error('Preload error:', error)
+    console.error('Error preloading data:', error)
+  }
+}
+
+// Performance monitoring
+export function getCacheStats() {
+  const now = Date.now()
+  const validEntries = Array.from(dataCache.entries()).filter(([_, value]) => 
+    now - value.timestamp < value.ttl
+  )
+  
+  return {
+    totalEntries: dataCache.size,
+    validEntries: validEntries.length,
+    expiredEntries: dataCache.size - validEntries.length
   }
 } 

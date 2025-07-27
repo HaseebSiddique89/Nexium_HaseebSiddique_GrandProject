@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { formatDate, getMoodEmoji, getMoodColor } from '@/lib/utils'
-import { BarChart3, TrendingUp, Calendar, Activity, Target } from 'lucide-react'
+import { BarChart3, TrendingUp, Calendar, Activity, Target, Lightbulb } from 'lucide-react'
 import { fetchAnalyticsDataOptimized } from '@/lib/data-optimization'
 
 interface MoodEntry {
@@ -147,7 +147,12 @@ export default function AnalyticsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Analytics</h1>
+        <div className="flex items-center space-x-3 mb-2">
+          <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+            <BarChart3 className="h-6 w-6 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Analytics</h1>
+        </div>
         <p className="text-gray-600 mt-2">
           Understand your mental health patterns and trends over time.
         </p>
@@ -155,38 +160,38 @@ export default function AnalyticsPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 hover-lift group">
           <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <BarChart3 className="h-6 w-6 text-blue-600" />
+            <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
+              <BarChart3 className="h-6 w-6 text-white" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Entries</p>
-              <p className="text-2xl font-bold text-gray-900">{moodEntries.length}</p>
+              <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{moodEntries.length}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 hover-lift group">
           <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Activity className="h-6 w-6 text-green-600" />
+            <div className="p-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
+              <Activity className="h-6 w-6 text-white" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Journal Entries</p>
-              <p className="text-2xl font-bold text-gray-900">{journalEntries.length}</p>
+              <p className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">{journalEntries.length}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 hover-lift group">
           <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <TrendingUp className="h-6 w-6 text-purple-600" />
+            <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
+              <TrendingUp className="h-6 w-6 text-white" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Avg Energy</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                 {moodEntries.length > 0 
                   ? Math.round(moodEntries.reduce((sum, entry) => sum + entry.energy_level, 0) / moodEntries.length * 10) / 10
                   : 0
@@ -196,15 +201,15 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 hover-lift group">
           <div className="flex items-center">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <Target className="h-6 w-6 text-orange-600" />
+            <div className="p-3 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
+              <Calendar className="h-6 w-6 text-white" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Tracking Days</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {new Set(moodEntries.map(entry => entry.created_at.split('T')[0])).size}
+              <p className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                {moodEntries.length > 0 ? Math.ceil((new Date().getTime() - new Date(moodEntries[moodEntries.length - 1].created_at).getTime()) / (1000 * 60 * 60 * 24)) : 0}
               </p>
             </div>
           </div>
@@ -212,18 +217,21 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Weekly Trend */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Weekly Mood Trend</h2>
+      <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="h-8 w-8 bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg flex items-center justify-center shadow-lg">
+            <TrendingUp className="h-5 w-5 text-white" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900">Weekly Trend</h2>
+        </div>
         <div className="grid grid-cols-7 gap-2">
           {weeklyTrend.map((day, index) => (
             <div key={index} className="text-center">
-              <div className="text-xs text-gray-500 mb-1">
-                {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}
-              </div>
-              <div className="h-20 bg-gray-100 rounded flex items-end justify-center p-1">
+              <div className="text-xs text-gray-500 mb-1">{day.date}</div>
+              <div className="h-20 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-100/50 flex items-end justify-center p-1">
                 {day.averageMood ? (
                   <div 
-                    className="w-full bg-blue-500 rounded"
+                    className="w-full bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg transition-all duration-300 hover:scale-105"
                     style={{ height: `${(day.averageMood / 5) * 100}%` }}
                   ></div>
                 ) : (
@@ -240,15 +248,20 @@ export default function AnalyticsPage() {
 
       {/* Mood Distribution */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Mood Distribution</h2>
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="h-8 w-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
+              <BarChart3 className="h-5 w-5 text-white" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900">Mood Distribution</h2>
+          </div>
           {Object.keys(moodDistribution).length > 0 ? (
             <div className="space-y-3">
               {Object.entries(moodDistribution).map(([mood, count]) => (
                 <div key={mood} className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <span className="text-lg">{getMoodEmoji(mood)}</span>
-                    <span className="capitalize">{mood}</span>
+                    <span className="capitalize text-gray-900">{mood}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-24 bg-gray-200 rounded-full h-2">
@@ -263,17 +276,27 @@ export default function AnalyticsPage() {
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-center">No mood data available</p>
+            <div className="text-center py-8">
+              <div className="h-12 w-12 bg-gradient-to-r from-gray-200 to-gray-300 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <BarChart3 className="h-6 w-6 text-gray-400" />
+              </div>
+              <p className="text-gray-500">No mood data available</p>
+            </div>
           )}
         </div>
 
         {/* Insights */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Insights</h2>
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="h-8 w-8 bg-gradient-to-r from-yellow-500 to-orange-600 rounded-lg flex items-center justify-center shadow-lg">
+              <Lightbulb className="h-5 w-5 text-white" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900">Insights</h2>
+          </div>
           <div className="space-y-3">
             {insights.map((insight, index) => (
-              <div key={index} className="flex items-start space-x-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+              <div key={index} className="flex items-start space-x-2 p-3 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl border border-yellow-100/50">
+                <div className="w-2 h-2 bg-gradient-to-r from-yellow-500 to-orange-600 rounded-full mt-2 flex-shrink-0"></div>
                 <p className="text-sm text-gray-700">{insight}</p>
               </div>
             ))}

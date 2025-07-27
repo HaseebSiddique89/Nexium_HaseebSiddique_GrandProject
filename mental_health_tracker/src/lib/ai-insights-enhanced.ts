@@ -119,9 +119,21 @@ export function clearUserCache(userId: string) {
   clearAICache(userId)
 }
 
-// Clean up expired cache entries
+// Clean up expired cache entries - only run occasionally
+let lastCleanupTime = 0
+const CLEANUP_INTERVAL = 5 * 60 * 1000 // 5 minutes
+
 export function cleanupExpiredCache() {
-  cleanupExpiredAIInsights()
+  const now = Date.now()
+  if (now - lastCleanupTime > CLEANUP_INTERVAL) {
+    lastCleanupTime = now
+    // Run cleanup in background without blocking
+    setTimeout(() => {
+      cleanupExpiredAIInsights().catch(error => {
+        console.warn('⚠️ Background cleanup failed (non-critical):', error)
+      })
+    }, 1000)
+  }
 }
 
 // Test function to verify API connectivity
@@ -258,12 +270,25 @@ export async function generateEnhancedAIInsights(
     // Check database cache with data hash validation
     console.log('🔍 Checking database cache for user:', userId)
     
-    // Try to get cached insights from database
-    const cachedInsights = await getAIInsightsFromDatabase(userId)
+    // Try to get cached insights from database with error handling
+    let cachedInsights: EnhancedAIInsights | null = null
+    try {
+      cachedInsights = await getAIInsightsFromDatabase(userId)
+    } catch (error) {
+      console.warn('⚠️ Database cache access failed (non-critical):', error)
+      // Continue without cache - this is not a critical error
+    }
     
     if (cachedInsights) {
       // Check if the cached data hash matches current data
-      const isCacheValid = await isAIInsightsCacheValid(userId, dataHash)
+      let isCacheValid = false
+      try {
+        isCacheValid = await isAIInsightsCacheValid(userId, dataHash)
+      } catch (error) {
+        console.warn('⚠️ Cache validation failed (non-critical):', error)
+        // Assume cache is invalid if validation fails
+        isCacheValid = false
+      }
       
       if (isCacheValid) {
         console.log('✅ Using cached AI insights from database (data unchanged, cache valid)')
@@ -374,15 +399,19 @@ export async function generateEnhancedAIInsights(
     }
 
     // Store the result in database cache
-    await storeAIInsightsInDatabase(userId, dataHash, result)
-    
-    console.log('💾 Stored AI insights in database cache (24h expiration)')
-    console.log('📊 Cache storage debug:', {
-      userId: userId,
-      dataHash: dataHash.substring(0, 50) + '...',
-      insightsCount: result.aiGeneratedInsights.length,
-      recommendationsCount: result.personalizedRecommendations.length
-    })
+    try {
+      await storeAIInsightsInDatabase(userId, dataHash, result)
+      console.log('💾 Stored AI insights in database cache (24h expiration)')
+      console.log('📊 Cache storage debug:', {
+        userId: userId,
+        dataHash: dataHash.substring(0, 50) + '...',
+        insightsCount: result.aiGeneratedInsights.length,
+        recommendationsCount: result.personalizedRecommendations.length
+      })
+    } catch (error) {
+      console.warn('⚠️ Failed to store AI insights in database cache (non-critical):', error)
+      // This is not a critical error - insights are still generated and returned
+    }
 
     return result
   } catch (error) {

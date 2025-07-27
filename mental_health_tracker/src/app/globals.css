@@ -3,6 +3,11 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  --gradient-accent: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  --shadow-glow: 0 0 20px rgba(102, 126, 234, 0.3);
+  --shadow-glow-hover: 0 0 30px rgba(102, 126, 234, 0.5);
 }
 
 @theme inline {
@@ -23,4 +28,171 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Custom Animations - Optimized for Performance */
+@keyframes float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -5px, 0); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 15px rgba(102, 126, 234, 0.2); }
+  50% { box-shadow: 0 0 25px rgba(102, 126, 234, 0.4); }
+}
+
+@keyframes slide-in-right {
+  from { transform: translate3d(100%, 0, 0); opacity: 0; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+
+@keyframes slide-in-up {
+  from { transform: translate3d(0, 20px, 0); opacity: 0; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { transform: scale3d(0.95, 0.95, 1); opacity: 0; }
+  to { transform: scale3d(1, 1, 1); opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+
+/* Animation Classes - Optimized with will-change */
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+  will-change: box-shadow;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.4s ease-out;
+  will-change: transform, opacity;
+}
+
+.animate-slide-in-up {
+  animation: slide-in-up 0.4s ease-out;
+  will-change: transform, opacity;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+  will-change: opacity;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+  will-change: transform, opacity;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 2s infinite;
+  will-change: background-position;
+}
+
+/* Hover Effects - Optimized for Performance */
+.hover-lift {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, box-shadow;
+}
+
+.hover-lift:hover {
+  transform: translate3d(0, -2px, 0);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.hover-glow {
+  transition: all 0.2s ease;
+  will-change: box-shadow, transform;
+}
+
+.hover-glow:hover {
+  box-shadow: var(--shadow-glow-hover);
+  transform: scale3d(1.01, 1.01, 1);
+}
+
+/* Gradient Backgrounds */
+.gradient-primary {
+  background: var(--gradient-primary);
+}
+
+.gradient-secondary {
+  background: var(--gradient-secondary);
+}
+
+.gradient-accent {
+  background: var(--gradient-accent);
+}
+
+/* Glass Effect - Optimized */
+.glass {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  will-change: backdrop-filter;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+}
+
+/* Loading States - Optimized */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 2s infinite;
+  will-change: background-position;
+}
+
+/* Focus States - Optimized */
+.focus-ring {
+  transition: all 0.15s ease;
+  will-change: box-shadow, transform;
+}
+
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+  transform: scale3d(1.01, 1.01, 1);
+}
+
+/* Performance optimizations */
+* {
+  box-sizing: border-box;
+}
+
+/* Reduce paint operations */
+.optimize-paint {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
 }

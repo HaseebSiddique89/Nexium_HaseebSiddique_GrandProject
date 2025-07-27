@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
 import { Calendar, ChevronLeft, ChevronRight, Plus, BarChart3, BookOpen } from 'lucide-react'
 import Link from 'next/link'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isWithinInterval } from 'date-fns'
 import { getMoodEmoji, getMoodColor } from '@/lib/utils'
 import { fetchUserDataOptimized } from '@/lib/data-optimization'
 import { CalendarSkeleton } from '@/components/LoadingSkeleton'
@@ -19,7 +19,7 @@ interface CalendarEntry {
 export default function CalendarPage() {
   const { user } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [calendarData, setCalendarData] = useState<CalendarEntry[]>([])
+  const [calendarData, setCalendarData] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -33,41 +33,42 @@ export default function CalendarPage() {
 
     setLoading(true)
     try {
-      const startDate = startOfMonth(currentDate)
-      const endDate = endOfMonth(currentDate)
-
-      // Use optimized data fetching
       const { moodEntries, journalEntries } = await fetchUserDataOptimized(user.id)
-
-      // Filter entries for the current month
-      const monthMoodEntries = moodEntries.filter(entry => {
+      
+      // Filter entries for current month
+      const currentMonthStart = startOfMonth(currentDate)
+      const currentMonthEnd = endOfMonth(currentDate)
+      
+      const filteredMoodEntries = moodEntries.filter((entry: any) => {
         const entryDate = new Date(entry.created_at)
-        return entryDate >= startDate && entryDate <= endDate
+        return isWithinInterval(entryDate, { start: currentMonthStart, end: currentMonthEnd })
+      })
+      
+      const filteredJournalEntries = journalEntries.filter((entry: any) => {
+        const entryDate = new Date(entry.created_at)
+        return isWithinInterval(entryDate, { start: currentMonthStart, end: currentMonthEnd })
       })
 
-      const monthJournalEntries = journalEntries.filter(entry => {
-        const entryDate = new Date(entry.created_at)
-        return entryDate >= startDate && entryDate <= endDate
-      })
-
-      // Create calendar data
-      const calendarData = eachDayOfInterval({ start: startDate, end: endDate }).map(day => {
-        const dateStr = format(day, 'yyyy-MM-dd')
-        const dayMoodEntries = monthMoodEntries.filter(entry => 
-          isSameDay(new Date(entry.created_at), day)
-        )
-        const dayJournalEntries = monthJournalEntries.filter(entry => 
-          isSameDay(new Date(entry.created_at), day)
-        )
-
-        return {
-          date: dateStr,
-          moodEntries: dayMoodEntries,
-          journalEntries: dayJournalEntries,
+      // Group entries by date
+      const groupedData: Record<string, any> = {}
+      
+      filteredMoodEntries.forEach((entry: any) => {
+        const dateStr = format(new Date(entry.created_at), 'yyyy-MM-dd')
+        if (!groupedData[dateStr]) {
+          groupedData[dateStr] = { moodEntries: [], journalEntries: [] }
         }
+        groupedData[dateStr].moodEntries.push(entry)
+      })
+      
+      filteredJournalEntries.forEach((entry: any) => {
+        const dateStr = format(new Date(entry.created_at), 'yyyy-MM-dd')
+        if (!groupedData[dateStr]) {
+          groupedData[dateStr] = { moodEntries: [], journalEntries: [] }
+        }
+        groupedData[dateStr].journalEntries.push(entry)
       })
 
-      setCalendarData(calendarData)
+      setCalendarData(groupedData)
     } catch (error) {
       console.error('Error fetching calendar data:', error)
       toast.error('Failed to load calendar data')
@@ -98,15 +99,20 @@ export default function CalendarPage() {
     return baseClass
   }
 
-  const getMoodSummary = (entries: CalendarEntry) => {
-    if (entries.moodEntries.length === 0) return null
+  const getMoodSummary = (dayData: any) => {
+    if (!dayData || !dayData.moodEntries || dayData.moodEntries.length === 0) {
+      return null
+    }
     
-    const moods = entries.moodEntries.map(entry => entry.mood)
-    const mostFrequentMood = moods.sort((a, b) => 
-      moods.filter(v => v === a).length - moods.filter(v => v === b).length
-    ).pop()
+    // Get the most common mood for the day
+    const moodCounts: Record<string, number> = {}
+    dayData.moodEntries.forEach((entry: any) => {
+      const mood = entry.mood || 'neutral'
+      moodCounts[mood] = (moodCounts[mood] || 0) + 1
+    })
     
-    return mostFrequentMood
+    const mostCommonMood = Object.entries(moodCounts).reduce((a, b) => a[1] > b[1] ? a : b)[0]
+    return mostCommonMood || null
   }
 
   if (loading) {
@@ -132,105 +138,81 @@ export default function CalendarPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Calendar</h1>
-          <p className="text-gray-600 mt-2">
-            View your mood and journal entries in a calendar format.
-          </p>
+      <div>
+        <div className="flex items-center space-x-3 mb-2">
+          <div className="h-10 w-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+            <Calendar className="h-6 w-6 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">Calendar</h1>
         </div>
-        <div className="flex space-x-2">
-          <Link
-            href="/dashboard/mood/new"
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Mood
-          </Link>
-          <Link
-            href="/dashboard/journal/new"
-            className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Journal
-          </Link>
-        </div>
-      </div>
-
-      {/* Calendar Navigation */}
-      <div className="flex items-center justify-between bg-white rounded-lg shadow p-4">
-        <button
-          onClick={previousMonth}
-          className="p-2 hover:bg-gray-100 rounded-md transition-colors"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <h2 className="text-xl font-semibold text-gray-900">
-          {format(currentDate, 'MMMM yyyy')}
-        </h2>
-        <button
-          onClick={nextMonth}
-          className="p-2 hover:bg-gray-100 rounded-md transition-colors"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
+        <p className="text-gray-600 mt-2">
+          View your mood and journal entries in a calendar format.
+        </p>
       </div>
 
       {/* Calendar Grid */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        {/* Day Headers */}
-        <div className="grid grid-cols-7 bg-gray-50">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="p-3 text-center text-sm font-medium text-gray-500">
-              {day}
+      <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg">
+            <Calendar className="h-5 w-5 text-white" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900">Monthly Overview</h2>
+        </div>
+        
+        <div className="grid grid-cols-7 gap-1">
+          {/* Day Headers */}
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+            <div key={day} className="p-2 text-center">
+              <div className="text-sm font-medium text-gray-600">{day}</div>
             </div>
           ))}
-        </div>
-
-        {/* Calendar Days */}
-        <div className="grid grid-cols-7">
+          
+          {/* Calendar Days */}
           {allDays.map((day, index) => {
-            const dayStr = format(day, 'yyyy-MM-dd')
-            const dayData = calendarData.find(entry => entry.date === dayStr) || {
-              date: dayStr,
-              moodEntries: [],
-              journalEntries: []
-            }
-            const moodSummary = getMoodSummary(dayData)
-
+            const dateStr = format(day, 'yyyy-MM-dd')
+            const dayData = calendarData[dateStr] || { moodEntries: [], journalEntries: [] }
+            
             return (
               <div
                 key={index}
-                className={getDayClass(day, dayData)}
+                className={`p-2 min-h-[80px] ${
+                  isSameMonth(day, currentDate) 
+                    ? 'bg-gradient-to-r from-gray-50 to-white border border-gray-100/50' 
+                    : 'bg-gray-50/50'
+                } rounded-lg hover:from-gray-100 hover:to-white transition-all duration-300`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-sm font-medium ${
-                    isSameMonth(day, currentDate) ? 'text-gray-900' : 'text-gray-400'
-                  }`}>
-                    {format(day, 'd')}
-                  </span>
-                  {moodSummary && (
-                    <span className="text-lg" title={`Mood: ${moodSummary}`}>
-                      {getMoodEmoji(moodSummary)}
-                    </span>
-                  )}
+                <div className="text-sm font-medium text-gray-900 mb-1">
+                  {format(day, 'd')}
                 </div>
+                
+                {(dayData.moodEntries.length > 0 || dayData.journalEntries.length > 0) && (
+                  <div className="space-y-1">
+                    {/* Mood Summary */}
+                    {getMoodSummary(dayData) && (
+                      <div className="flex items-center justify-center">
+                        <span className="text-lg" title={`Mood: ${getMoodSummary(dayData)}`}>
+                          {getMoodEmoji(getMoodSummary(dayData) || 'neutral')}
+                        </span>
+                      </div>
+                    )}
 
-                {/* Entry Indicators */}
-                <div className="space-y-1">
-                  {dayData.moodEntries.length > 0 && (
-                    <div className="flex items-center text-xs text-blue-600">
-                      <BarChart3 className="h-3 w-3 mr-1" />
-                      <span>{dayData.moodEntries.length} mood{dayData.moodEntries.length > 1 ? 's' : ''}</span>
+                    {/* Entry Indicators */}
+                    <div className="space-y-1">
+                      {dayData.moodEntries.length > 0 && (
+                        <div className="flex items-center text-xs text-blue-600">
+                          <BarChart3 className="h-3 w-3 mr-1" />
+                          <span>{dayData.moodEntries.length} mood{dayData.moodEntries.length > 1 ? 's' : ''}</span>
+                        </div>
+                      )}
+                      {dayData.journalEntries.length > 0 && (
+                        <div className="flex items-center text-xs text-green-600">
+                          <BookOpen className="h-3 w-3 mr-1" />
+                          <span>{dayData.journalEntries.length} journal{dayData.journalEntries.length > 1 ? 's' : ''}</span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {dayData.journalEntries.length > 0 && (
-                    <div className="flex items-center text-xs text-green-600">
-                      <BookOpen className="h-3 w-3 mr-1" />
-                      <span>{dayData.journalEntries.length} journal{dayData.journalEntries.length > 1 ? 's' : ''}</span>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )
           })}
@@ -238,11 +220,16 @@ export default function CalendarPage() {
       </div>
 
       {/* Legend */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Legend</h3>
+      <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="h-8 w-8 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg flex items-center justify-center shadow-lg">
+            <BookOpen className="h-5 w-5 text-white" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900">Legend</h3>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-blue-50 border border-blue-200 rounded"></div>
+            <div className="w-4 h-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/50 rounded"></div>
             <span className="text-sm text-gray-600">Days with entries</span>
           </div>
           <div className="flex items-center space-x-2">

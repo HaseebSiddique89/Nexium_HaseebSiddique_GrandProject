@@ -95,43 +95,43 @@ export default function AIInsightsPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">AI Insights</h1>
-          <p className="text-gray-600 mt-2">
-            Advanced analysis of your mental health patterns and personalized recommendations
-          </p>
+      <div>
+        <div className="flex items-center space-x-3 mb-2">
+          <div className="h-10 w-10 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
+            <Brain className="h-6 w-6 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">AI Insights</h1>
         </div>
-        <div className="flex items-center space-x-2">
-          {aiEnabled ? (
-            <div className="flex items-center space-x-2 text-green-600">
-              <Zap className="h-5 w-5" />
-              <span className="text-sm font-medium">AI Powered</span>
-            </div>
-          ) : (
-            <div className="flex items-center space-x-2 text-yellow-600">
-              <Settings className="h-5 w-5" />
-              <span className="text-sm font-medium">Basic Analysis</span>
-            </div>
-          )}
-        </div>
+        <p className="text-gray-600 mt-2">
+          Advanced AI-powered analysis of your mental health patterns and personalized recommendations.
+        </p>
       </div>
 
-                           {!aiEnabled && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      {loading ? (
+        <div className="space-y-6">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gradient-to-r from-gray-200 to-gray-300 rounded-xl w-1/4 mb-4"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-32 bg-gradient-to-r from-gray-200 to-gray-300 rounded-xl"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : !aiEnabled ? (
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg">
+              <Settings className="h-5 w-5 text-white" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900">AI Configuration Required</h2>
+          </div>
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100/50 p-6">
             <div className="flex items-start space-x-3">
-              <Brain className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <Zap className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
               <div>
                 <h3 className="text-sm font-medium text-blue-900">Enable Real AI</h3>
                 <p className="text-sm text-blue-700 mt-1">
@@ -140,14 +140,14 @@ export default function AIInsightsPage() {
                 </p>
                 <div className="mt-3 text-xs text-blue-600">
                   <p>Add to your .env.local:</p>
-                                    <code className="block mt-1 bg-blue-100 p-2 rounded">
-                     # For Gemini AI (predictions, insights, recommendations)<br/>
-                     NEXT_PUBLIC_AI_PROVIDER=gemini<br/>
-                     NEXT_PUBLIC_AI_MODEL=gemini-2.5-flash-lite<br/>
-                     NEXT_PUBLIC_AI_API_KEY=your_gemini_api_key_here<br/><br/>
-                     # For Hugging Face (sentiment analysis)<br/>
-                     NEXT_PUBLIC_HUGGINGFACE_TOKEN=your_huggingface_token_here
-                   </code>
+                  <code className="block mt-1 bg-blue-100 p-2 rounded">
+                    # For Gemini AI (predictions, insights, recommendations)<br/>
+                    NEXT_PUBLIC_AI_PROVIDER=gemini<br/>
+                    NEXT_PUBLIC_AI_MODEL=gemini-2.5-flash-lite<br/>
+                    NEXT_PUBLIC_AI_API_KEY=your_gemini_api_key_here<br/><br/>
+                    # For Hugging Face (sentiment analysis)<br/>
+                    NEXT_PUBLIC_HUGGINGFACE_TOKEN=your_huggingface_token_here
+                  </code>
                   <p className="mt-2 text-red-600">
                     <strong>Debug Info:</strong> Check browser console for AI configuration details
                   </p>
@@ -155,16 +155,15 @@ export default function AIInsightsPage() {
               </div>
             </div>
           </div>
-        )}
-
-
-
-      {insights && (
+        </div>
+      ) : insights ? (
         <div className="space-y-6">
           {/* Sentiment Analysis */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <Activity className="h-6 w-6 text-purple-600" />
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="h-8 w-8 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg flex items-center justify-center shadow-lg">
+                <Activity className="h-5 w-5 text-white" />
+              </div>
               <h2 className="text-xl font-semibold text-gray-900">Sentiment Analysis</h2>
             </div>
             
@@ -183,7 +182,7 @@ export default function AIInsightsPage() {
                 <h3 className="text-lg font-medium text-gray-900 mb-3">Emotional Keywords</h3>
                 <div className="flex flex-wrap gap-2">
                   {insights.sentimentAnalysis.emotionalKeywords.map((keyword, index) => (
-                    <span key={index} className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded">
+                    <span key={index} className="px-2 py-1 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 text-xs rounded-full border border-purple-200/50">
                       {keyword}
                     </span>
                   ))}
@@ -196,7 +195,7 @@ export default function AIInsightsPage() {
                 <h3 className="text-lg font-medium text-gray-900 mb-3">Stress Indicators</h3>
                 <div className="flex flex-wrap gap-2">
                   {insights.sentimentAnalysis.stressIndicators.map((indicator, index) => (
-                    <span key={index} className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">
+                    <span key={index} className="px-2 py-1 bg-gradient-to-r from-red-100 to-pink-100 text-red-700 text-xs rounded-full border border-red-200/50">
                       {indicator}
                     </span>
                   ))}
@@ -206,9 +205,11 @@ export default function AIInsightsPage() {
           </div>
 
           {/* Predictive Insights */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <TrendingUp className="h-6 w-6 text-blue-600" />
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg">
+                <TrendingUp className="h-5 w-5 text-white" />
+              </div>
               <h2 className="text-xl font-semibold text-gray-900">Predictive Insights</h2>
             </div>
             
@@ -233,7 +234,7 @@ export default function AIInsightsPage() {
                     <h4 className="text-sm font-medium text-red-700 mb-1">Risk Factors</h4>
                     <div className="space-y-1">
                       {insights.predictiveInsights.riskFactors.map((factor, index) => (
-                        <div key={index} className="flex items-center space-x-2">
+                        <div key={index} className="flex items-center space-x-2 p-2 bg-gradient-to-r from-red-50 to-pink-50 rounded-lg border border-red-100/50">
                           <AlertTriangle className="h-4 w-4 text-red-500" />
                           <span className="text-sm text-gray-700">{factor}</span>
                         </div>
@@ -247,7 +248,7 @@ export default function AIInsightsPage() {
                     <h4 className="text-sm font-medium text-green-700 mb-1">Positive Factors</h4>
                     <div className="space-y-1">
                       {insights.predictiveInsights.positiveFactors.map((factor, index) => (
-                        <div key={index} className="flex items-center space-x-2">
+                        <div key={index} className="flex items-center space-x-2 p-2 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-100/50">
                           <CheckCircle className="h-4 w-4 text-green-500" />
                           <span className="text-sm text-gray-700">{factor}</span>
                         </div>
@@ -260,15 +261,17 @@ export default function AIInsightsPage() {
           </div>
 
           {/* AI Generated Insights */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <Sparkles className="h-6 w-6 text-yellow-600" />
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="h-8 w-8 bg-gradient-to-r from-yellow-500 to-orange-600 rounded-lg flex items-center justify-center shadow-lg">
+                <Sparkles className="h-5 w-5 text-white" />
+              </div>
               <h2 className="text-xl font-semibold text-gray-900">AI Generated Insights</h2>
             </div>
             
             <div className="space-y-3">
               {insights.aiGeneratedInsights.map((insight, index) => (
-                <div key={index} className="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
+                <div key={index} className="flex items-start space-x-3 p-3 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl border border-yellow-100/50">
                   <Lightbulb className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-700">{insight}</span>
                 </div>
@@ -277,15 +280,17 @@ export default function AIInsightsPage() {
           </div>
 
           {/* Personalized Recommendations */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <Target className="h-6 w-6 text-green-600" />
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="h-8 w-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center shadow-lg">
+                <Target className="h-5 w-5 text-white" />
+              </div>
               <h2 className="text-xl font-semibold text-gray-900">Personalized Recommendations</h2>
             </div>
             
             <div className="space-y-3">
               {insights.personalizedRecommendations.map((recommendation, index) => (
-                <div key={index} className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                <div key={index} className="flex items-start space-x-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-100/50">
                   <Target className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
                   <span className="text-sm text-gray-700">{recommendation}</span>
                 </div>
@@ -295,62 +300,48 @@ export default function AIInsightsPage() {
 
           {/* Pattern Analysis */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Mood Patterns */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center space-x-2 mb-4">
-                <BarChart3 className="h-6 w-6 text-blue-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Mood Patterns</h2>
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="h-8 w-8 bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg flex items-center justify-center shadow-lg">
+                  <BarChart3 className="h-5 w-5 text-white" />
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900">Mood Analysis</h2>
               </div>
-              
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600">Average Mood</p>
-                  <p className="text-2xl font-bold text-gray-900">{insights.moodAnalysis.averageMood.toFixed(1)}/5</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Most Common Mood</p>
-                  <p className="text-lg font-medium text-gray-900 capitalize">{insights.moodAnalysis.mostCommonMood}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Weekly Trend</p>
-                  <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getPredictionColor(insights.weeklyTrend)}`}>
-                    {insights.weeklyTrend.charAt(0).toUpperCase() + insights.weeklyTrend.slice(1)}
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">
+                  <strong>Most Common Mood:</strong> {insights.moodAnalysis.mostCommonMood}
+                </p>
+                <p className="text-sm text-gray-600">
+                  <strong>Average Energy:</strong> {insights.moodAnalysis.averageEnergy}/10
+                </p>
+                <p className="text-sm text-gray-600">
+                  <strong>Mood Stability:</strong> {insights.moodAnalysis.moodStability}
+                </p>
               </div>
             </div>
 
-            {/* Journal Patterns */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center space-x-2 mb-4">
-                <BookOpen className="h-6 w-6 text-green-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Journal Patterns</h2>
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="h-8 w-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
+                  <BookOpen className="h-5 w-5 text-white" />
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900">Journal Analysis</h2>
               </div>
-              
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600">Total Entries</p>
-                  <p className="text-2xl font-bold text-gray-900">{insights.journalAnalysis.totalEntries}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Common Themes</p>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {insights.journalAnalysis.commonThemes.slice(0, 3).map((theme, index) => (
-                      <span key={index} className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
-                        {theme}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Average Entry Length</p>
-                  <p className="text-lg font-medium text-gray-900">{insights.journalAnalysis.averageLength} words</p>
-                </div>
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">
+                  <strong>Total Entries:</strong> {insights.journalAnalysis.totalEntries}
+                </p>
+                <p className="text-sm text-gray-600">
+                  <strong>Average Length:</strong> {insights.journalAnalysis.averageLength} words
+                </p>
+                <p className="text-sm text-gray-600">
+                  <strong>Writing Frequency:</strong> {insights.journalAnalysis.writingFrequency}
+                </p>
               </div>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 } 

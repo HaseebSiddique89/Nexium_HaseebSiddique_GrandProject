@@ -47,7 +47,7 @@ export default function DashboardLayout({
     <div className="min-h-screen bg-gray-50">
       <div className="flex">
         <Navigation />
-        <main className="flex-1 lg:ml-64">
+        <main className="flex-1">
           <div className="p-6 lg:p-8">
             {children}
           </div>

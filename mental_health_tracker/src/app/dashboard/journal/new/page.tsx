@@ -143,7 +143,7 @@ export default function NewJournalEntryPage() {
             id="title"
             value={formData.title}
             onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500/50 text-black"
             placeholder="Give your entry a title..."
             maxLength={100}
           />
@@ -183,7 +183,7 @@ export default function NewJournalEntryPage() {
             rows={12}
             value={formData.content}
             onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500/50 text-black"
             placeholder="Write about your day, thoughts, feelings, or anything you'd like to reflect on..."
           />
         </div>
@@ -201,7 +201,7 @@ export default function NewJournalEntryPage() {
                 value={newTag}
                 onChange={(e) => setNewTag(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500/50 text-black"
                 placeholder="Add a tag..."
                 maxLength={20}
               />

@@ -109,7 +109,7 @@ export default function JournalPage() {
                 placeholder="Search entries..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500/50 text-black"
               />
             </div>
           </div>
@@ -120,6 +120,7 @@ export default function JournalPage() {
               value={selectedMood}
               onChange={(e) => setSelectedMood(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              style={{ color: "rgba(0, 0, 0, 0.5)" }}
             >
               <option value="all">All moods</option>
               {getUniqueMoods().map(mood => (

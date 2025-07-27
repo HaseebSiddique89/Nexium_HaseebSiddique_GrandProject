@@ -1,4 +1,12 @@
 import { supabase } from './supabase'
+import { 
+  getAIInsightsFromDatabase, 
+  storeAIInsightsInDatabase, 
+  clearAIInsightsFromDatabase,
+  isAIInsightsCacheValid,
+  cleanupExpiredAIInsights,
+  testDatabaseAccess
+} from './ai-insights-database'
 
 // Import types from ai-insights.ts
 interface MoodAnalysis {
@@ -49,9 +57,10 @@ export interface AIModelConfig {
   huggingfaceToken?: string
 }
 
-// Cache management
-const aiCache = new Map<string, { data: EnhancedAIInsights; timestamp: number }>()
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+// Database-based caching with 24-hour expiration
+const CACHE_DURATION = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
+
+
 
 // API usage tracking
 const apiUsage = new Map<string, { count: number; lastReset: number }>()
@@ -95,21 +104,14 @@ export function isRateLimited(userId: string): boolean {
 
 export function clearAICache(userId: string) {
   console.log('🗑️ Clearing AI cache for user:', userId)
-  const keysToDelete: string[] = []
-  
-  for (const [key] of aiCache) {
-    if (key.startsWith(`${userId}_`)) {
-      keysToDelete.push(key)
-    }
-  }
-  
-  keysToDelete.forEach(key => aiCache.delete(key))
-  console.log(`🗑️ Cleared ${keysToDelete.length} cached entries for user ${userId}`)
+  clearAIInsightsFromDatabase(userId)
 }
 
 export function clearAllAICache() {
   console.log('🗑️ Clearing all AI cache')
-  aiCache.clear()
+  // This would require a more complex implementation to clear all users
+  // For now, we'll just log it
+  console.log('⚠️ clearAllAICache not implemented for database cache')
 }
 
 // Clear cache when new data is added
@@ -117,12 +119,101 @@ export function clearUserCache(userId: string) {
   clearAICache(userId)
 }
 
+// Clean up expired cache entries
+export function cleanupExpiredCache() {
+  cleanupExpiredAIInsights()
+}
+
+// Test function to verify API connectivity
+export async function testAPIConnectivity(config: AIModelConfig): Promise<{
+  gemini: { success: boolean; error?: string; response?: unknown };
+  huggingface: { success: boolean; error?: string; response?: unknown };
+}> {
+  console.log('🧪 Testing API connectivity...')
+  
+  const results = {
+    gemini: { success: false, error: undefined as string | undefined, response: undefined as unknown },
+    huggingface: { success: false, error: undefined as string | undefined, response: undefined as unknown }
+  }
+  
+  // Test Gemini API
+  if (config.apiKey) {
+    try {
+      console.log('🧪 Testing Gemini API...')
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: 'Hello, this is a test message. Please respond with "Test successful."' }] }]
+        })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        results.gemini = { success: true, response: data, error: undefined }
+        console.log('✅ Gemini API test successful')
+      } else {
+        results.gemini = { success: false, error: `${response.status} ${response.statusText}`, response: undefined }
+        console.log('❌ Gemini API test failed:', results.gemini.error)
+      }
+    } catch (error) {
+      results.gemini = { success: false, error: (error as Error).message, response: undefined }
+      console.log('❌ Gemini API test error:', results.gemini.error)
+    }
+  } else {
+    results.gemini = { success: false, error: 'No API key provided', response: undefined }
+    console.log('❌ Gemini API test failed: No API key')
+  }
+  
+  // Test Hugging Face API
+  if (config.huggingfaceToken) {
+    try {
+      console.log('🧪 Testing Hugging Face API...')
+      const response = await fetch('https://api-inference.huggingface.co/models/cardiffnlp/twitter-roberta-base-sentiment', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.huggingfaceToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ inputs: 'I am feeling happy today!' })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        results.huggingface = { success: true, response: data, error: undefined }
+        console.log('✅ Hugging Face API test successful')
+      } else {
+        results.huggingface = { success: false, error: `${response.status} ${response.statusText}`, response: undefined }
+        console.log('❌ Hugging Face API test failed:', results.huggingface.error)
+      }
+    } catch (error) {
+      results.huggingface = { success: false, error: (error as Error).message, response: undefined }
+      console.log('❌ Hugging Face API test error:', results.huggingface.error)
+    }
+  } else {
+    results.huggingface = { success: false, error: 'No Hugging Face token provided', response: undefined }
+    console.log('❌ Hugging Face API test failed: No token')
+  }
+  
+  console.log('🧪 API connectivity test results:', results)
+  return results
+}
+
 export async function generateEnhancedAIInsights(
   userId: string, 
   aiConfig?: AIModelConfig
 ): Promise<EnhancedAIInsights> {
-  console.log('🎯 Starting enhanced AI insights generation for user:', userId)
+  const callId = Math.random().toString(36).substring(7)
+  console.log(`🎯 Starting enhanced AI insights generation for user: ${userId} (call ID: ${callId})`)
   console.log('🔧 AI Config:', aiConfig)
+  
+
+  
+  // Clean up expired cache entries periodically
+  cleanupExpiredCache()
+  
+  // Test database access first
+  await testDatabaseAccess()
   
   try {
     // Fetch user's data first to check if anything has changed
@@ -144,24 +235,52 @@ export async function generateEnhancedAIInsights(
     console.log('  - Mood entries:', moodEntries?.length || 0)
     console.log('  - Journal entries:', journalEntries?.length || 0)
 
-    // Create a data hash to check if anything has changed
+    // Create a stable data hash based on content, not timestamps
+    const moodContentHash = moodEntries?.map(entry => `${entry.mood}_${entry.energy_level || 0}`).join('|') || ''
+    const journalContentHash = journalEntries?.map(entry => `${entry.title || ''}_${entry.content || ''}_${entry.mood || ''}`).join('|') || ''
+    
     const dataHash = JSON.stringify({
       moodCount: moodEntries?.length || 0,
       journalCount: journalEntries?.length || 0,
-      latestMood: moodEntries?.[0]?.created_at || '',
-      latestJournal: journalEntries?.[0]?.created_at || '',
+      moodContentHash: moodContentHash,
+      journalContentHash: journalContentHash,
       provider: aiConfig?.provider || 'basic'
     })
     
-    // Check cache with data hash
-    const cacheKey = `${userId}_${dataHash}`
-    const cached = aiCache.get(cacheKey)
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      console.log('✅ Using cached AI insights (data unchanged)')
-      return cached.data
-    }
+    console.log('🔍 Data hash created:', {
+      moodCount: moodEntries?.length || 0,
+      journalCount: journalEntries?.length || 0,
+      moodContentHash: moodContentHash.substring(0, 50) + '...',
+      journalContentHash: journalContentHash.substring(0, 50) + '...',
+      fullDataHash: dataHash.substring(0, 100) + '...'
+    })
     
-    console.log('🔄 Data has changed or cache expired, regenerating insights')
+    // Check database cache with data hash validation
+    console.log('🔍 Checking database cache for user:', userId)
+    
+    // Try to get cached insights from database
+    const cachedInsights = await getAIInsightsFromDatabase(userId)
+    
+    if (cachedInsights) {
+      // Check if the cached data hash matches current data
+      const isCacheValid = await isAIInsightsCacheValid(userId, dataHash)
+      
+      if (isCacheValid) {
+        console.log('✅ Using cached AI insights from database (data unchanged, cache valid)')
+        console.log('📊 Cache retrieval debug:', {
+          cachedSentiment: cachedInsights.sentimentAnalysis.overallSentiment,
+          cachedScore: cachedInsights.sentimentAnalysis.sentimentScore,
+          cachedPrediction: cachedInsights.predictiveInsights.moodPrediction,
+          cachedInsightsCount: cachedInsights.aiGeneratedInsights.length,
+          cachedRecommendationsCount: cachedInsights.personalizedRecommendations.length
+        })
+        return cachedInsights
+      } else {
+        console.log('🔄 Data content has changed, regenerating insights')
+      }
+    } else {
+      console.log('🔄 No cache found in database, generating new insights')
+    }
 
     // Basic analysis (existing logic)
     const basicMoodAnalysis = analyzeMoodPatterns(moodEntries || [])
@@ -182,6 +301,11 @@ export async function generateEnhancedAIInsights(
     if (hasEnoughData && aiConfig) {
       console.log('🤖 Making AI calls...')
       
+      // Test API connectivity first
+      console.log('🧪 Testing API connectivity before making calls...')
+      const apiTest = await testAPIConnectivity(aiConfig)
+      console.log('🧪 API test results:', apiTest)
+      
       // Check rate limits before making AI calls
       if (isRateLimited(userId)) {
         console.log('⚠️ Rate limit exceeded, using basic analysis')
@@ -190,66 +314,40 @@ export async function generateEnhancedAIInsights(
         aiGeneratedInsights = generateBasicInsights(journalEntries || [], moodEntries || [])
         personalizedRecommendations = generateBasicRecommendations(basicMoodAnalysis, basicJournalAnalysis)
       } else {
-        // Make AI calls in parallel to reduce total time
-        let sentimentResult: SentimentAnalysis
-        let predictiveResult: PredictiveInsights
-        let insightsResult: string[]
-        
+        // Use optimized single Gemini call for all insights
         try {
-          console.log('🚀 Starting parallel AI calls...')
-          const results = await Promise.all([
-            performSentimentAnalysis(journalEntries || [], aiConfig),
-            generatePredictiveInsights(moodEntries || [], journalEntries || [], aiConfig),
-            generateAIInsights(journalEntries || [], moodEntries || [], aiConfig)
-          ])
+          console.log('🚀 Making single optimized Gemini call for all insights...')
+          const allInsights = await generateAllInsightsWithSingleGeminiCall(
+            moodEntries || [], 
+            journalEntries || [], 
+            aiConfig
+          )
           
-          sentimentResult = results[0]
-          predictiveResult = results[1]
-          insightsResult = results[2]
+          sentimentAnalysis = allInsights.sentimentAnalysis
+          predictiveInsights = allInsights.predictiveInsights
+          aiGeneratedInsights = allInsights.aiGeneratedInsights
+          personalizedRecommendations = allInsights.personalizedRecommendations
           
-          console.log('✅ All AI calls completed successfully')
-          console.log('  - Sentiment result:', sentimentResult)
-          console.log('  - Predictive result:', predictiveResult)
-          console.log('  - Insights result count:', insightsResult.length)
+          // Increment API usage only once for the single call
+          incrementAPIUsage(userId)
           
-          // Increment API usage after successful AI calls
-          incrementAPIUsage(userId)
-          incrementAPIUsage(userId)
-          incrementAPIUsage(userId)
+          console.log('✅ Single Gemini call completed successfully')
+          console.log('  - Sentiment:', sentimentAnalysis.overallSentiment, sentimentAnalysis.sentimentScore)
+          console.log('  - Predictions:', predictiveInsights.moodPrediction)
+          console.log('  - Insights count:', aiGeneratedInsights.length)
+          console.log('  - Recommendations count:', personalizedRecommendations.length)
         } catch (error) {
-          console.error('❌ AI calls failed, falling back to basic analysis:', error)
+          console.error('❌ Single Gemini call failed, falling back to basic analysis:', error)
           console.error('❌ Error details:', {
             message: (error as Error).message,
             stack: (error as Error).stack,
             name: (error as Error).name
           })
-          sentimentResult = performBasicSentimentAnalysis(journalEntries || [])
-          predictiveResult = generateBasicPredictiveInsights(moodEntries || [], journalEntries || [])
-          insightsResult = generateBasicInsights(journalEntries || [], moodEntries || [])
+          sentimentAnalysis = performBasicSentimentAnalysis(journalEntries || [])
+          predictiveInsights = generateBasicPredictiveInsights(moodEntries || [], journalEntries || [])
+          aiGeneratedInsights = generateBasicInsights(journalEntries || [], moodEntries || [])
+          personalizedRecommendations = generateBasicRecommendations(basicMoodAnalysis, basicJournalAnalysis)
         }
-        
-        // Generate recommendations using the already computed sentiment and predictions
-        let recommendationsResult: string[]
-        try {
-          recommendationsResult = await generatePersonalizedRecommendations(
-            basicMoodAnalysis, 
-            basicJournalAnalysis, 
-            sentimentResult,
-            predictiveResult,
-            aiConfig
-          )
-          
-          // Increment API usage for recommendations call
-          incrementAPIUsage(userId)
-        } catch (error) {
-          console.error('❌ Recommendations failed, using basic recommendations:', error)
-          recommendationsResult = generateBasicRecommendations(basicMoodAnalysis, basicJournalAnalysis)
-        }
-        
-        sentimentAnalysis = sentimentResult
-        predictiveInsights = predictiveResult
-        aiGeneratedInsights = insightsResult
-        personalizedRecommendations = recommendationsResult
       }
     } else {
       console.log('⚠️ Using basic analysis (no AI calls)')
@@ -275,9 +373,16 @@ export async function generateEnhancedAIInsights(
       weeklyTrend: determineWeeklyTrend(basicMoodAnalysis)
     }
 
-    // Cache the result
-    aiCache.set(cacheKey, { data: result, timestamp: Date.now() })
-    console.log('💾 Cached AI insights for 5 minutes')
+    // Store the result in database cache
+    await storeAIInsightsInDatabase(userId, dataHash, result)
+    
+    console.log('💾 Stored AI insights in database cache (24h expiration)')
+    console.log('📊 Cache storage debug:', {
+      userId: userId,
+      dataHash: dataHash.substring(0, 50) + '...',
+      insightsCount: result.aiGeneratedInsights.length,
+      recommendationsCount: result.personalizedRecommendations.length
+    })
 
     return result
   } catch (error) {
@@ -959,12 +1064,29 @@ function repairJSONString(text: string): string {
   // Remove markdown code blocks
   repaired = repaired.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
   
-  // Ensure it starts and ends with brackets
-  if (!repaired.startsWith('[')) repaired = '[' + repaired
-  if (!repaired.endsWith(']')) repaired = repaired + ']'
+  // If the response is wrapped in an array, extract the first object
+  if (repaired.startsWith('[') && repaired.endsWith(']')) {
+    // Extract the content between the brackets
+    const arrayContent = repaired.slice(1, -1).trim()
+    
+    // If the array content is an object, use it directly
+    if (arrayContent.startsWith('{') && arrayContent.endsWith('}')) {
+      repaired = arrayContent
+    } else {
+      // Try to find the first complete object in the array
+      const objectMatch = arrayContent.match(/\{[^}]*\}/)
+      if (objectMatch) {
+        repaired = objectMatch[0]
+      }
+    }
+  }
+  
+  // Ensure it starts and ends with object brackets
+  if (!repaired.startsWith('{')) repaired = '{' + repaired
+  if (!repaired.endsWith('}')) repaired = repaired + '}'
   
   // Remove trailing commas
-  repaired = repaired.replace(/,\s*]/g, ']').replace(/,\s*}/g, '}')
+  repaired = repaired.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']')
   
   // Try to parse as-is first
   try {
@@ -1438,35 +1560,104 @@ function performBasicSentimentAnalysis(journalEntries: Array<{ title?: string; c
   }
 }
 
-function generateBasicPredictiveInsights(moodEntries: Array<{ mood: string; energy_level?: number; notes?: string; created_at: string }>, _journalEntries: Array<{ title?: string; content?: string; mood?: string; tags?: string[]; created_at: string }>): PredictiveInsights {
+function generateBasicPredictiveInsights(moodEntries: Array<{ mood: string; energy_level?: number; notes?: string; created_at: string }>, journalEntries: Array<{ title?: string; content?: string; mood?: string; tags?: string[]; created_at: string }>): PredictiveInsights {
   // Basic prediction logic
   const recentMoods = moodEntries.slice(0, 7).map(entry => entry.mood)
   const moodScores = { excellent: 5, good: 4, neutral: 3, bad: 2, terrible: 1 }
   
   const recentScores = recentMoods.map(mood => moodScores[mood as keyof typeof moodScores])
-  const avgRecentScore = recentScores.reduce((sum, score) => sum + score, 0) / recentScores.length
+  const avgRecentScore = recentScores.length > 0 ? recentScores.reduce((sum, score) => sum + score, 0) / recentScores.length : 3
   
   let moodPrediction: 'likely_improve' | 'likely_decline' | 'stable' = 'stable'
   if (avgRecentScore > 3.5) moodPrediction = 'likely_improve'
   else if (avgRecentScore < 2.5) moodPrediction = 'likely_decline'
 
+  const riskFactors: string[] = []
+  const positiveFactors: string[] = []
+
+  // Analyze risk factors
+  if (avgRecentScore < 3) {
+    riskFactors.push('Low mood trend detected')
+    riskFactors.push('Potential stress indicators present')
+  }
+  
+  if (recentMoods.filter(mood => ['bad', 'terrible'].includes(mood)).length > 2) {
+    riskFactors.push('Multiple negative mood entries recently')
+  }
+
+  // Analyze positive factors
+  if (avgRecentScore > 3.5) {
+    positiveFactors.push('Positive mood trend observed')
+    positiveFactors.push('Good emotional consistency')
+  }
+  
+  if (recentMoods.filter(mood => ['excellent', 'good'].includes(mood)).length > 2) {
+    positiveFactors.push('Multiple positive mood entries recently')
+  }
+
+  // Journal-based factors
+  if (journalEntries.length > 5) {
+    positiveFactors.push('Active journaling habit supports emotional processing')
+  }
+
+  let nextWeekPrediction = 'Based on recent patterns, your mood is likely to remain stable.'
+  if (moodPrediction === 'likely_improve') {
+    nextWeekPrediction = 'Your recent positive trends suggest continued mood improvement in the coming week.'
+  } else if (moodPrediction === 'likely_decline') {
+    nextWeekPrediction = 'Your recent patterns suggest you might experience some mood challenges. Consider implementing stress management techniques.'
+  }
+
   return {
     moodPrediction,
-    riskFactors: avgRecentScore < 3 ? ['Low mood trend', 'Potential stress indicators'] : [],
-    positiveFactors: avgRecentScore > 3.5 ? ['Positive mood trend', 'Good consistency'] : [],
-    nextWeekPrediction: `Based on recent patterns, your mood is likely to ${moodPrediction.replace('_', ' ')}.`
+    riskFactors,
+    positiveFactors,
+    nextWeekPrediction
   }
 }
 
 function generateBasicInsights(journalEntries: Array<{ title?: string; content?: string; mood?: string; tags?: string[]; created_at: string }>, moodEntries: Array<{ mood: string; energy_level?: number; notes?: string; created_at: string }>): string[] {
   const insights: string[] = []
   
+  // Journal insights
   if (journalEntries.length > 0) {
-    insights.push('You\'ve been actively journaling, which is great for self-reflection.')
+    insights.push('You\'ve been actively journaling, which is excellent for self-reflection and emotional processing.')
+    
+    if (journalEntries.length > 5) {
+      insights.push('Your consistent journaling habit shows strong commitment to mental health awareness.')
+    }
+    
+    const avgLength = journalEntries.reduce((sum, entry) => sum + (entry.content?.length || 0), 0) / journalEntries.length
+    if (avgLength > 100) {
+      insights.push('Your detailed journal entries provide rich insights into your emotional patterns.')
+    }
+  } else {
+    insights.push('Consider starting a journaling practice to better understand your thoughts and feelings.')
   }
   
-  if (moodEntries.length > 5) {
-    insights.push('Consistent mood tracking helps identify patterns and triggers.')
+  // Mood insights
+  if (moodEntries.length > 0) {
+    insights.push('Regular mood tracking helps identify patterns, triggers, and emotional trends.')
+    
+    if (moodEntries.length > 10) {
+      insights.push('Your extensive mood history provides valuable data for understanding your emotional patterns.')
+    }
+    
+    const recentMoods = moodEntries.slice(0, 7).map(entry => entry.mood)
+    const positiveMoods = recentMoods.filter(mood => ['excellent', 'good'].includes(mood))
+    const negativeMoods = recentMoods.filter(mood => ['bad', 'terrible'].includes(mood))
+    
+    if (positiveMoods.length > negativeMoods.length) {
+      insights.push('Your recent mood trends show a positive outlook, which is great for overall well-being.')
+    } else if (negativeMoods.length > positiveMoods.length) {
+      insights.push('Your recent mood patterns suggest you might be experiencing some challenges. Consider reaching out for support.')
+    }
+  } else {
+    insights.push('Start tracking your daily moods to gain insights into your emotional patterns.')
+  }
+  
+  // Combined insights
+  if (journalEntries.length > 0 && moodEntries.length > 0) {
+    insights.push('Combining mood tracking with journaling provides a comprehensive view of your mental health journey.')
   }
   
   return insights
@@ -1475,12 +1666,33 @@ function generateBasicInsights(journalEntries: Array<{ title?: string; content?:
 function generateBasicRecommendations(moodAnalysis: MoodAnalysis, journalAnalysis: JournalAnalysis): string[] {
   const recommendations: string[] = []
   
+  // Mood-based recommendations
   if (moodAnalysis.averageMood < 3) {
-    recommendations.push('Consider reaching out to a mental health professional')
+    recommendations.push('Consider reaching out to a mental health professional for support')
+    recommendations.push('Try incorporating more physical activity into your daily routine')
+  } else if (moodAnalysis.averageMood > 4) {
+    recommendations.push('Great job maintaining positive moods! Keep up the good work')
   }
   
-  if (journalAnalysis.commonThemes.length === 0) {
-    recommendations.push('Try adding tags to your journal entries for better organization')
+  // Journal-based recommendations
+  if (journalAnalysis.totalEntries === 0) {
+    recommendations.push('Start journaling regularly to track your thoughts and feelings')
+  } else if (journalAnalysis.totalEntries < 5) {
+    recommendations.push('Try to journal more frequently to build a consistent habit')
+  } else {
+    recommendations.push('Excellent journaling consistency! Consider adding more detailed entries')
+  }
+  
+  // General wellness recommendations
+  recommendations.push('Practice mindfulness or meditation for 10-15 minutes daily')
+  recommendations.push('Ensure you\'re getting adequate sleep (7-9 hours per night)')
+  recommendations.push('Stay hydrated and maintain a balanced diet')
+  
+  // Streak-based recommendations
+  if (moodAnalysis.streakDays > 7) {
+    recommendations.push('Impressive mood tracking streak! Keep up the consistency')
+  } else if (moodAnalysis.streakDays < 3) {
+    recommendations.push('Try to track your mood daily to build a consistent habit')
   }
   
   return recommendations
@@ -1586,4 +1798,260 @@ function determineWeeklyTrend(moodAnalysis: MoodAnalysis): 'positive' | 'negativ
   if (moodAnalysis.averageMood > 3.5) return 'positive'
   if (moodAnalysis.averageMood < 2.5) return 'negative'
   return 'neutral'
+} 
+
+// New optimized function that makes a single Gemini call for all insights
+async function generateAllInsightsWithSingleGeminiCall(
+  moodEntries: Array<{ mood: string; energy_level?: number; notes?: string; created_at: string }>,
+  journalEntries: Array<{ title?: string; content?: string; mood?: string; tags?: string[]; created_at: string }>,
+  config: AIModelConfig
+): Promise<{
+  sentimentAnalysis: SentimentAnalysis;
+  predictiveInsights: PredictiveInsights;
+  aiGeneratedInsights: string[];
+  personalizedRecommendations: string[];
+}> {
+  if (!config.apiKey) {
+    console.log('⚠️ No API key provided, using basic analysis')
+    const basicSentiment = performBasicSentimentAnalysis(journalEntries)
+    const basicPredictions = generateBasicPredictiveInsights(moodEntries, journalEntries)
+    const basicInsights = generateBasicInsights(journalEntries, moodEntries)
+    const basicRecommendations = generateBasicRecommendations(
+      analyzeMoodPatterns(moodEntries),
+      analyzeJournalPatterns(journalEntries)
+    )
+    
+    console.log('📊 Basic analysis results:')
+    console.log('  - Sentiment:', basicSentiment)
+    console.log('  - Predictions:', basicPredictions)
+    console.log('  - Insights count:', basicInsights.length)
+    console.log('  - Recommendations count:', basicRecommendations.length)
+    
+    return {
+      sentimentAnalysis: basicSentiment,
+      predictiveInsights: basicPredictions,
+      aiGeneratedInsights: basicInsights,
+      personalizedRecommendations: basicRecommendations
+    }
+  }
+
+  try {
+    console.log('🚀 Making single optimized Gemini call for all insights...')
+    
+    // Prepare data for the single call
+    const moodHistory = moodEntries.map(entry => ({
+      mood: entry.mood,
+      energy: entry.energy_level,
+      date: entry.created_at,
+      notes: entry.notes
+    }))
+
+    const journalThemes = journalEntries.map(entry => ({
+      title: entry.title,
+      content: entry.content,
+      mood: entry.mood,
+      tags: entry.tags,
+      date: entry.created_at
+    }))
+
+    const userPatterns = analyzeUserPatterns(moodEntries, journalEntries)
+    const moodAnalysis = analyzeMoodPatterns(moodEntries)
+    const journalAnalysis = analyzeJournalPatterns(journalEntries)
+
+    // Create comprehensive prompt for single call
+    const prompt = `Analyze this mental health data and provide insights in JSON format:
+
+MOOD DATA (${moodEntries.length} entries):
+${moodHistory.map(entry => `- ${entry.date}: ${entry.mood} (energy: ${entry.energy || 'N/A'}) ${entry.notes ? `- ${entry.notes}` : ''}`).join('\n')}
+
+JOURNAL DATA (${journalEntries.length} entries):
+${journalThemes.map(entry => `- ${entry.date}: ${entry.title || 'No title'} - ${entry.content?.substring(0, 100)}...`).join('\n')}
+
+USER PATTERNS:
+- Mood frequency: ${userPatterns.moodFrequency} entries per week
+- Journal frequency: ${userPatterns.journalFrequency} entries per week  
+- Average mood score: ${userPatterns.averageMood}
+
+Respond with ONLY a valid JSON object in this exact format (no markdown, no explanations):
+{
+  "sentiment": {
+    "overallSentiment": "positive",
+    "sentimentScore": 0.5,
+    "emotionalKeywords": ["happy", "good"],
+    "stressIndicators": []
+  },
+  "predictions": {
+    "moodPrediction": "likely_improve",
+    "riskFactors": [],
+    "positiveFactors": ["positive mood trend"],
+    "nextWeekPrediction": "Your mood is likely to improve based on recent patterns."
+  },
+  "insights": [
+    "You have been consistently tracking your mood",
+    "Your journaling habit shows good self-reflection"
+  ],
+  "recommendations": [
+    "Continue your daily mood tracking",
+    "Keep journaling regularly for better insights"
+  ]
+}`
+
+    console.log('🌐 Making Gemini API call to:', `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent`)
+    console.log('🔑 Using API key:', config.apiKey ? `${config.apiKey.substring(0, 10)}...` : 'NOT SET')
+    console.log('📝 Prompt length:', prompt.length, 'characters')
+    
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      })
+    })
+
+    console.log('📡 Gemini API response status:', response.status, response.statusText)
+    
+    if (!response.ok) {
+      console.error('❌ Gemini API error:', response.status, response.statusText)
+      throw new Error(`Gemini API error: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    console.log('📥 Raw Gemini API response data:', JSON.stringify(data, null, 2))
+    
+    const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    console.log('📥 Extracted response text:', responseText)
+
+    // Try to parse the JSON response
+    let parsedData: {
+      sentiment?: {
+        overallSentiment?: string;
+        sentimentScore?: number;
+        emotionalKeywords?: string[];
+        stressIndicators?: string[];
+      };
+      predictions?: {
+        moodPrediction?: string;
+        riskFactors?: string[];
+        positiveFactors?: string[];
+        nextWeekPrediction?: string;
+      };
+      insights?: string[];
+      recommendations?: string[];
+    }
+    
+    console.log('🔍 Attempting to parse Gemini response...')
+    console.log('📝 Raw response text:', responseText)
+    
+    try {
+      const cleanedResponse = repairJSONString(responseText)
+      console.log('🧹 Cleaned response:', cleanedResponse)
+      parsedData = JSON.parse(cleanedResponse)
+      console.log('✅ Successfully parsed JSON:', parsedData)
+    } catch (parseError) {
+      console.error('❌ Failed to parse Gemini response:', parseError)
+      console.error('❌ Parse error details:', {
+        message: (parseError as Error).message,
+        stack: (parseError as Error).stack
+      })
+      
+      console.log('🔄 Falling back to basic analysis due to JSON parse failure')
+      
+      // Manual extraction fallback
+      const sentimentAnalysis = performBasicSentimentAnalysis(journalEntries)
+      const predictiveInsights = generateBasicPredictiveInsights(moodEntries, journalEntries)
+      const aiGeneratedInsights = generateBasicInsights(journalEntries, moodEntries)
+      const personalizedRecommendations = generateBasicRecommendations(
+        analyzeMoodPatterns(moodEntries),
+        analyzeJournalPatterns(journalEntries)
+      )
+      
+      console.log('📊 Fallback analysis results:')
+      console.log('  - Sentiment:', sentimentAnalysis)
+      console.log('  - Predictions:', predictiveInsights)
+      console.log('  - Insights count:', aiGeneratedInsights.length)
+      console.log('  - Recommendations count:', personalizedRecommendations.length)
+      
+      return {
+        sentimentAnalysis,
+        predictiveInsights,
+        aiGeneratedInsights,
+        personalizedRecommendations
+      }
+    }
+
+    // Extract and validate the data
+    // Handle case where parsedData might be an array
+    const extractedData = Array.isArray(parsedData) ? parsedData[0] : parsedData
+    
+    console.log('📊 Extracted data from parsed response:')
+    console.log('  - Parsed data type:', Array.isArray(parsedData) ? 'array' : 'object')
+    console.log('  - Data to use:', extractedData)
+    
+    const sentimentAnalysis: SentimentAnalysis = {
+      overallSentiment: (extractedData?.sentiment?.overallSentiment as 'positive' | 'negative' | 'neutral') || 'neutral',
+      sentimentScore: extractedData?.sentiment?.sentimentScore || 0,
+      emotionalKeywords: extractedData?.sentiment?.emotionalKeywords || [],
+      stressIndicators: extractedData?.sentiment?.stressIndicators || []
+    }
+
+    const predictiveInsights: PredictiveInsights = {
+      moodPrediction: (extractedData?.predictions?.moodPrediction as 'likely_improve' | 'likely_decline' | 'stable') || 'stable',
+      riskFactors: extractedData?.predictions?.riskFactors || [],
+      positiveFactors: extractedData?.predictions?.positiveFactors || [],
+      nextWeekPrediction: extractedData?.predictions?.nextWeekPrediction || 'No prediction available'
+    }
+
+    const aiGeneratedInsights = extractedData?.insights || []
+    const personalizedRecommendations = extractedData?.recommendations || []
+
+    console.log('✅ Single Gemini call completed successfully')
+    console.log('  - Sentiment:', sentimentAnalysis.overallSentiment, sentimentAnalysis.sentimentScore)
+    console.log('  - Predictions:', predictiveInsights.moodPrediction)
+    console.log('  - Insights count:', aiGeneratedInsights.length)
+    console.log('  - Recommendations count:', personalizedRecommendations.length)
+
+    return {
+      sentimentAnalysis,
+      predictiveInsights,
+      aiGeneratedInsights,
+      personalizedRecommendations
+    }
+
+  } catch (error) {
+    console.error('❌ Single Gemini call failed:', error)
+    console.error('❌ Error details:', {
+      message: (error as Error).message,
+      stack: (error as Error).stack,
+      name: (error as Error).name
+    })
+    
+    // Fallback to basic analysis
+    console.log('🔄 Falling back to basic analysis due to Gemini call failure')
+    const fallbackSentiment = performBasicSentimentAnalysis(journalEntries)
+    const fallbackPredictions = generateBasicPredictiveInsights(moodEntries, journalEntries)
+    const fallbackInsights = generateBasicInsights(journalEntries, moodEntries)
+    const fallbackRecommendations = generateBasicRecommendations(
+      analyzeMoodPatterns(moodEntries),
+      analyzeJournalPatterns(journalEntries)
+    )
+    
+    console.log('📊 Fallback analysis results:')
+    console.log('  - Sentiment:', fallbackSentiment)
+    console.log('  - Predictions:', fallbackPredictions)
+    console.log('  - Insights count:', fallbackInsights.length)
+    console.log('  - Recommendations count:', fallbackRecommendations.length)
+    
+    return {
+      sentimentAnalysis: fallbackSentiment,
+      predictiveInsights: fallbackPredictions,
+      aiGeneratedInsights: fallbackInsights,
+      personalizedRecommendations: fallbackRecommendations
+    }
+  }
 } 

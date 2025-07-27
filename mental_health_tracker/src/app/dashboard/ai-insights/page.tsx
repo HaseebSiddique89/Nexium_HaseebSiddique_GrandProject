@@ -52,7 +52,16 @@ export default function AIInsightsPage() {
       console.log('  - HuggingFace Token Set:', !!aiConfig?.huggingfaceToken)
       console.log('  - Full Config:', aiConfig)
 
+      // Note: Cache will automatically expire after 24 hours or when new data is added
+      console.log('📊 Fetching AI insights (will use cache if available)')
+
       const enhancedInsights = await generateEnhancedAIInsights(user.id, aiConfig)
+      console.log('📊 AI Insights Results:')
+      console.log('  - Sentiment:', enhancedInsights.sentimentAnalysis)
+      console.log('  - Predictions:', enhancedInsights.predictiveInsights)
+      console.log('  - Insights count:', enhancedInsights.aiGeneratedInsights.length)
+      console.log('  - Recommendations count:', enhancedInsights.personalizedRecommendations.length)
+      console.log('  - Full insights object:', enhancedInsights)
       setInsights(enhancedInsights)
     } catch (error) {
       console.error('Error fetching AI insights:', error)

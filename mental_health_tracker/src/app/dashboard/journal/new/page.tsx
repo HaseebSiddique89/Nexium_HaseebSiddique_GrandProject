@@ -65,6 +65,10 @@ export default function NewJournalEntryPage() {
 
     setLoading(true)
     try {
+      console.log('📝 Attempting to create journal entry...')
+      console.log('🔧 User ID:', user?.id)
+      console.log('🔧 Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+      
       const { error } = await supabase
         .from('journal_entries')
         .insert({
@@ -75,7 +79,12 @@ export default function NewJournalEntryPage() {
           tags: formData.tags,
         })
 
-      if (error) throw error
+      if (error) {
+        console.error('❌ Supabase error:', error)
+        throw error
+      }
+
+      console.log('✅ Journal entry created successfully')
 
       // Clear AI cache to ensure fresh insights
       if (user?.id) {
@@ -85,8 +94,21 @@ export default function NewJournalEntryPage() {
       toast.success('Journal entry created successfully!')
       router.push('/dashboard/journal')
     } catch (error) {
-      console.error('Error creating journal entry:', error)
-      toast.error('Failed to create journal entry. Please try again.')
+      console.error('❌ Error creating journal entry:', error)
+      console.error('❌ Error details:', {
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+        name: (error as Error).name
+      })
+      
+      let errorMessage = 'Failed to create journal entry. Please try again.'
+      if ((error as Error).message?.includes('fetch')) {
+        errorMessage = 'Network error. Please check your internet connection and try again.'
+      } else if ((error as Error).message?.includes('supabase')) {
+        errorMessage = 'Database connection error. Please try again later.'
+      }
+      
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }

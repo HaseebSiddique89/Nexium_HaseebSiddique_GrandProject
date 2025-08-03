@@ -1,25 +1,48 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import Link from 'next/link'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { formatDate, getMoodEmoji, getMoodColor } from '@/lib/utils'
-import { Plus, Calendar, TrendingUp, BarChart3, Heart, Activity, Clock } from 'lucide-react'
-import { fetchUserDataOptimized } from '@/lib/data-optimization'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
+import {
+  Heart,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  Calendar,
+  Clock,
+  Plus,
+  Edit,
+  Trash2,
+  BarChart3,
+  Target,
+  Award,
+  Sparkles,
+  ArrowRight,
+  CheckCircle,
+  AlertTriangle,
+  Smile,
+  Frown,
+  Meh,
+  Zap,
+  Star
+} from 'lucide-react'
 
 interface MoodEntry {
   id: string
   mood: string
-  energy_level: number
-  notes: string | null
-  activities: string[]
+  energy_level?: number
+  notes?: string
   created_at: string
 }
 
-export default function MoodTrackerPage() {
+export default function MoodPage() {
   const { user } = useAuth()
-  const [entries, setEntries] = useState<MoodEntry[]>([])
+  const router = useRouter()
+  const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [editingEntry, setEditingEntry] = useState<MoodEntry | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -27,66 +50,115 @@ export default function MoodTrackerPage() {
     }
   }, [user])
 
-  const fetchMoodEntries = useCallback(async () => {
+  const fetchMoodEntries = async () => {
     if (!user) return
-    
+
+    setLoading(true)
     try {
-      const { moodEntries } = await fetchUserDataOptimized(user.id)
-      setEntries(moodEntries)
+      const { data, error } = await supabase
+        .from('mood_entries')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setMoodEntries(data || [])
     } catch (error) {
       console.error('Error fetching mood entries:', error)
+      toast.error('Failed to load mood entries')
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }
 
-  const getMoodStats = () => {
-    if (!entries.length) return { averageMood: 0, totalEntries: 0, currentStreak: 0 }
-
-    const moodValues = { excellent: 5, good: 4, neutral: 3, bad: 2, terrible: 1 }
-    const averageMood = entries.reduce((sum, entry) => {
-      return sum + (moodValues[entry.mood as keyof typeof moodValues] || 3)
-    }, 0) / entries.length
-
-    // Calculate streak
-    let streak = 0
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    
-    for (let i = 0; i < 30; i++) {
-      const checkDate = new Date(today)
-      checkDate.setDate(today.getDate() - i)
-      
-      const hasEntry = entries.some(entry => {
-        const entryDate = new Date(entry.created_at)
-        entryDate.setHours(0, 0, 0, 0)
-        return entryDate.getTime() === checkDate.getTime()
-      })
-      
-      if (hasEntry) {
-        streak++
-      } else {
-        break
-      }
-    }
-
-    return {
-      averageMood: Math.round(averageMood * 10) / 10,
-      totalEntries: entries.length,
-      currentStreak: streak
+  const getMoodIcon = (mood: string) => {
+    switch (mood) {
+      case 'excellent': return <Smile className="h-6 w-6 text-green-600" />
+      case 'good': return <Smile className="h-5 w-5 text-blue-600" />
+      case 'neutral': return <Meh className="h-5 w-5 text-yellow-600" />
+      case 'bad': return <Frown className="h-5 w-5 text-orange-600" />
+      case 'terrible': return <Frown className="h-6 w-6 text-red-600" />
+      default: return <Meh className="h-5 w-5 text-zinc-600" />
     }
   }
 
-  const stats = getMoodStats()
+  const getMoodColor = (mood: string) => {
+    switch (mood) {
+      case 'excellent': return 'bg-green-100 text-green-700 border-green-200'
+      case 'good': return 'bg-blue-100 text-blue-700 border-blue-200'
+      case 'neutral': return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+      case 'bad': return 'bg-orange-100 text-orange-700 border-orange-200'
+      case 'terrible': return 'bg-red-100 text-red-700 border-red-200'
+      default: return 'bg-zinc-100 text-zinc-700 border-zinc-200'
+    }
+  }
+
+  const calculateStats = () => {
+    if (moodEntries.length === 0) return null
+
+    const moodScores = { excellent: 5, good: 4, neutral: 3, bad: 2, terrible: 1 }
+    const scores = moodEntries.map(entry => moodScores[entry.mood as keyof typeof moodScores])
+    const averageMood = scores.reduce((sum, score) => sum + score, 0) / scores.length
+
+    // Calculate most common mood
+    const moodCounts = moodEntries.reduce((acc, entry) => {
+      acc[entry.mood] = (acc[entry.mood] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+    const mostCommonMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'neutral'
+
+    // Calculate streak
+    let streakDays = 0
+    if (moodEntries.length > 0) {
+      const moodDates = [...new Set(moodEntries.map(entry => new Date(entry.created_at).toDateString()))]
+      moodDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+      
+      for (let i = 0; i < moodDates.length - 1; i++) {
+        const currentDate = new Date(moodDates[i])
+        const nextDate = new Date(moodDates[i + 1])
+        const dayDiff = Math.floor((currentDate.getTime() - nextDate.getTime()) / (1000 * 60 * 60 * 24))
+        if (dayDiff <= 1) {
+          streakDays++
+        } else {
+          break
+        }
+      }
+      // Add 1 for the first day
+      streakDays++
+    }
+
+    // Calculate recent trend
+    const recentEntries = moodEntries.slice(0, 7)
+    const olderEntries = moodEntries.slice(7, 14)
+    
+    const recentAvg = recentEntries.length > 0 ? 
+      recentEntries.reduce((sum, entry) => sum + moodScores[entry.mood as keyof typeof moodScores], 0) / recentEntries.length : 3
+    const olderAvg = olderEntries.length > 0 ? 
+      olderEntries.reduce((sum, entry) => sum + moodScores[entry.mood as keyof typeof moodScores], 0) / olderEntries.length : 3
+    
+    let recentTrend: 'up' | 'down' | 'stable' = 'stable'
+    if (recentAvg > olderAvg + 0.5) recentTrend = 'up'
+    else if (recentAvg < olderAvg - 0.5) recentTrend = 'down'
+
+    return {
+      totalEntries: moodEntries.length,
+      averageMood,
+      mostCommonMood,
+      streakDays,
+      recentTrend
+    }
+  }
+
+  const stats = calculateStats()
 
   if (loading) {
     return (
       <div className="space-y-6">
         <div className="animate-pulse">
-          <div className="h-8 bg-gradient-to-r from-gray-200 to-gray-300 rounded-xl w-1/4 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-32 bg-gradient-to-r from-gray-200 to-gray-300 rounded-xl"></div>
+          <div className="h-8 bg-gradient-to-r from-zinc-200 to-zinc-300 rounded-xl w-1/4 mb-6"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-32 bg-gradient-to-r from-zinc-200 to-zinc-300 rounded-2xl"></div>
             ))}
           </div>
         </div>
@@ -95,153 +167,179 @@ export default function MoodTrackerPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Heart className="h-6 w-6 text-white" />
-            </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">Mood Tracker</h1>
-          </div>
-          <p className="text-gray-600 mt-2">
-            Track your daily mood and energy levels to understand your mental health patterns.
-          </p>
+          <h1 className="text-3xl font-bold text-zinc-900">Mood Tracking</h1>
+          <p className="text-zinc-600 mt-2">Track your daily moods and energy levels to understand your patterns.</p>
         </div>
-        <Link
-          href="/dashboard/mood/new"
-          className="group inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-teal-600 text-white rounded-xl hover:from-blue-600 hover:to-teal-700 transition-all duration-300 hover:scale-105 hover-lift shadow-lg hover:shadow-xl focus-ring"
+        <button
+          onClick={() => router.push('/dashboard/mood/new')}
+          className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl"
         >
-          <Plus className="h-5 w-5 mr-2 group-hover:rotate-90 transition-transform duration-300" />
-          Add Entry
-        </Link>
+          <Plus className="h-5 w-5" />
+          <span>Add Mood Entry</span>
+        </button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 hover-lift group">
-          <div className="flex items-center">
-            <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
-              <BarChart3 className="h-6 w-6 text-white" />
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-zinc-600">Total Entries</p>
+                <p className="text-3xl font-bold text-zinc-900">{stats.totalEntries}</p>
+              </div>
+              <div className="h-12 w-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+                <Heart className="h-6 w-6 text-white" />
+              </div>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Entries</p>
-              <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{stats.totalEntries}</p>
+            <div className="mt-4 flex items-center space-x-2">
+              <TrendingUp className="h-4 w-4 text-green-600" />
+              <span className="text-sm text-green-600">+5 this week</span>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-zinc-600">Average Mood</p>
+                <p className="text-3xl font-bold text-zinc-900">{stats.averageMood.toFixed(1)}</p>
+              </div>
+              <div className="h-12 w-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                <Activity className="h-6 w-6 text-white" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center space-x-2">
+              {stats.recentTrend === 'up' ? (
+                <TrendingUp className="h-4 w-4 text-green-600" />
+              ) : stats.recentTrend === 'down' ? (
+                <TrendingDown className="h-4 w-4 text-red-600" />
+              ) : (
+                <Activity className="h-4 w-4 text-yellow-600" />
+              )}
+              <span className={`text-sm ${stats.recentTrend === 'up' ? 'text-green-600' : stats.recentTrend === 'down' ? 'text-red-600' : 'text-yellow-600'}`}>
+                {stats.recentTrend === 'up' ? 'Improving' : stats.recentTrend === 'down' ? 'Declining' : 'Stable'}
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-zinc-600">Most Common</p>
+                <p className="text-3xl font-bold text-zinc-900 capitalize">{stats.mostCommonMood}</p>
+              </div>
+              <div className="h-12 w-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
+                {getMoodIcon(stats.mostCommonMood)}
+              </div>
+            </div>
+            <div className="mt-4 flex items-center space-x-2">
+              <Star className="h-4 w-4 text-purple-600" />
+              <span className="text-sm text-purple-600">Your pattern</span>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-zinc-600">Current Streak</p>
+                <p className="text-3xl font-bold text-zinc-900">{stats.streakDays} days</p>
+              </div>
+              <div className="h-12 w-12 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl flex items-center justify-center">
+                <Award className="h-6 w-6 text-white" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center space-x-2">
+              <Zap className="h-4 w-4 text-orange-600" />
+              <span className="text-sm text-orange-600">Keep it up!</span>
             </div>
           </div>
         </div>
+      )}
 
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 hover-lift group">
-          <div className="flex items-center">
-            <div className="p-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
-              <TrendingUp className="h-6 w-6 text-white" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Current Streak</p>
-              <p className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">{stats.currentStreak} days</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 hover-lift group">
-          <div className="flex items-center">
-            <div className="p-3 bg-gradient-to-r from-teal-500 to-cyan-600 rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
-              <Activity className="h-6 w-6 text-white" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Average Mood</p>
-              <p className="text-2xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">{stats.averageMood}/5</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Entries List */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50">
-        <div className="px-6 py-4 border-b border-gray-200/50">
-          <div className="flex items-center space-x-3">
-            <TrendingUp className="h-5 w-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">
-              Recent Entries ({entries.length})
-            </h2>
-          </div>
+      {/* Mood Entries */}
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm">
+        <div className="p-6 border-b border-zinc-200">
+          <h2 className="text-xl font-semibold text-zinc-900">Recent Entries</h2>
         </div>
         
-        {entries.length === 0 ? (
+        {moodEntries.length === 0 ? (
           <div className="p-8 text-center">
-            <div className="h-16 w-16 bg-gradient-to-r from-gray-200 to-gray-300 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Heart className="h-8 w-8 text-gray-400" />
+            <div className="h-16 w-16 bg-gradient-to-r from-zinc-100 to-zinc-200 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Heart className="h-8 w-8 text-zinc-400" />
             </div>
-            <p className="text-gray-600 mb-4">No mood entries yet. Start tracking your mood!</p>
-            <Link
-              href="/dashboard/mood/new"
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-teal-600 text-white rounded-xl hover:from-blue-600 hover:to-teal-700 transition-all duration-300 hover:scale-105 hover-lift shadow-lg hover:shadow-xl focus-ring"
+            <h3 className="text-lg font-medium text-zinc-900 mb-2">No mood entries yet</h3>
+            <p className="text-zinc-600 mb-6">Start tracking your mood to see patterns and insights.</p>
+            <button
+              onClick={() => router.push('/dashboard/mood/new')}
+              className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl"
             >
-              <Plus className="h-5 w-5 mr-2" />
-              Add First Entry
-            </Link>
+              <Plus className="h-5 w-5" />
+              <span>Add Your First Entry</span>
+            </button>
           </div>
         ) : (
-          <div className="divide-y divide-gray-200/50">
-            {entries.map((entry) => (
-              <div key={entry.id} className="p-6 hover:bg-gradient-to-r hover:from-gray-50/50 hover:to-white/50 transition-all duration-300">
+          <div className="divide-y divide-zinc-200">
+            {moodEntries.map((entry) => (
+              <div key={entry.id} className="p-6 hover:bg-zinc-50 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
-                    <div className="text-3xl animate-float">{getMoodEmoji(entry.mood)}</div>
+                    <div className={`p-3 rounded-xl ${getMoodColor(entry.mood)}`}>
+                      {getMoodIcon(entry.mood)}
+                    </div>
                     <div>
-                      <div className="flex items-center space-x-3">
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getMoodColor(entry.mood)} shadow-sm`}>
-                          {entry.mood}
-                        </span>
-                        <div className="flex items-center space-x-1 text-sm text-gray-500">
-                          <Activity className="h-4 w-4" />
-                          <span>Energy: {entry.energy_level}/10</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2 mt-2">
-                        <Clock className="h-4 w-4 text-gray-400" />
-                        <p className="text-sm text-gray-600">
-                          {formatDate(new Date(entry.created_at))}
-                        </p>
-                      </div>
+                      <h3 className="font-medium text-zinc-900 capitalize">{entry.mood}</h3>
+                      <p className="text-sm text-zinc-500">
+                        {new Date(entry.created_at).toLocaleDateString()}
+                      </p>
+                      {entry.energy_level && (
+                        <p className="text-xs text-zinc-500">Energy: {entry.energy_level}/10</p>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-500 font-medium">
-                      {new Date(entry.created_at).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
-                    </p>
+                  <div className="flex items-center space-x-2">
+                    <button className="p-2 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
-                
                 {entry.notes && (
-                  <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-teal-50 rounded-xl border border-blue-100/50">
-                    <p className="text-gray-700 text-sm leading-relaxed">{entry.notes}</p>
-                  </div>
-                )}
-                
-                {entry.activities && entry.activities.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-xs text-gray-500 mb-2 font-medium">Activities:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {entry.activities.map((activity, index) => (
-                        <span
-                          key={index}
-                          className="px-3 py-1 bg-gradient-to-r from-blue-100 to-teal-100 text-blue-700 text-xs rounded-full border border-blue-200/50 font-medium"
-                        >
-                          {activity}
-                        </span>
-                      ))}
-                    </div>
+                  <div className="mt-3 p-3 bg-zinc-50 rounded-lg">
+                    <p className="text-sm text-zinc-700">{entry.notes}</p>
                   </div>
                 )}
               </div>
             ))}
           </div>
         )}
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-200">
+        <h3 className="text-lg font-semibold text-zinc-900 mb-4">Quick Actions</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button
+            onClick={() => router.push('/dashboard/mood/new')}
+            className="flex items-center space-x-3 p-4 bg-white rounded-xl border border-green-200 hover:border-green-300 transition-colors"
+          >
+            <Plus className="h-5 w-5 text-green-600" />
+            <span className="font-medium text-zinc-900">Add New Entry</span>
+          </button>
+          <button className="flex items-center space-x-3 p-4 bg-white rounded-xl border border-blue-200 hover:border-blue-300 transition-colors">
+            <BarChart3 className="h-5 w-5 text-blue-600" />
+            <span className="font-medium text-zinc-900">View Analytics</span>
+          </button>
+          <button className="flex items-center space-x-3 p-4 bg-white rounded-xl border border-purple-200 hover:border-purple-300 transition-colors">
+            <Target className="h-5 w-5 text-purple-600" />
+            <span className="font-medium text-zinc-900">Set Goals</span>
+          </button>
+        </div>
       </div>
     </div>
   )

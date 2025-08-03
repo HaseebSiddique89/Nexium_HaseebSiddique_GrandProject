@@ -63,6 +63,46 @@ export default function JournalPage() {
     return [...new Set(moods)]
   }
 
+  const calculateJournalStats = () => {
+    if (entries.length === 0) return null
+
+    // Calculate journal streak
+    let streakDays = 0
+    if (entries.length > 0) {
+      const journalDates = [...new Set(entries.map(entry => new Date(entry.created_at).toDateString()))]
+      journalDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+      
+      for (let i = 0; i < journalDates.length - 1; i++) {
+        const currentDate = new Date(journalDates[i])
+        const nextDate = new Date(journalDates[i + 1])
+        const dayDiff = Math.floor((currentDate.getTime() - nextDate.getTime()) / (1000 * 60 * 60 * 24))
+        if (dayDiff <= 1) {
+          streakDays++
+        } else {
+          break
+        }
+      }
+      // Add 1 for the first day
+      streakDays++
+    }
+
+    // Calculate average length
+    const totalLength = entries.reduce((sum, entry) => sum + entry.content.length, 0)
+    const averageLength = entries.length > 0 ? totalLength / entries.length : 0
+
+    // Calculate total words
+    const totalWords = entries.reduce((sum, entry) => sum + entry.content.split(' ').length, 0)
+
+    return {
+      totalEntries: entries.length,
+      streakDays,
+      averageLength,
+      totalWords
+    }
+  }
+
+  const stats = calculateJournalStats()
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -145,7 +185,7 @@ export default function JournalPage() {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Entries</p>
-              <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{entries.length}</p>
+              <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{stats?.totalEntries || 0}</p>
             </div>
           </div>
         </div>
@@ -153,11 +193,11 @@ export default function JournalPage() {
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 hover-lift group">
           <div className="flex items-center">
             <div className="p-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
-              <Tag className="h-6 w-6 text-white" />
+              <TrendingUp className="h-6 w-6 text-white" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Unique Tags</p>
-              <p className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">{getUniqueTags().length}</p>
+              <p className="text-sm font-medium text-gray-600">Writing Streak</p>
+              <p className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">{stats?.streakDays || 0} days</p>
             </div>
           </div>
         </div>

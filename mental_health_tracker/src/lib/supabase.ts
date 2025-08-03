@@ -1,28 +1,19 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// Debug Supabase configuration
-console.log('🔧 Supabase Configuration Debug:')
-console.log('- NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl ? 'SET' : 'NOT SET')
-console.log('- NEXT_PUBLIC_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'SET' : 'NOT SET')
-if (supabaseUrl) {
-  console.log('- Supabase URL:', supabaseUrl)
-}
-if (supabaseAnonKey) {
-  console.log('- Supabase Anon Key (first 10 chars):', supabaseAnonKey.substring(0, 10) + '...')
-}
-
-// Validate configuration
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('❌ Missing Supabase configuration!')
-  console.error('❌ Please check your .env file contains:')
-  console.error('❌ NEXT_PUBLIC_SUPABASE_URL=your_supabase_url')
-  console.error('❌ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key')
+  throw new Error('Missing Supabase environment variables. Please check your .env.local file.')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+})
 
 export type Database = {
   public: {

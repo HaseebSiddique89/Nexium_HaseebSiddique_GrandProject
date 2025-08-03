@@ -1,141 +1,244 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { formatDate, getMoodEmoji, getMoodColor } from '@/lib/utils'
-import { BarChart3, TrendingUp, Calendar, Activity, Target, Lightbulb } from 'lucide-react'
-import { fetchAnalyticsDataOptimized } from '@/lib/data-optimization'
+import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
+import {
+  BarChart3,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  Heart,
+  Calendar,
+  Clock,
+  Target,
+  Award,
+  Sparkles,
+  Brain,
+  BookOpen,
+  Zap,
+  Star,
+  CheckCircle,
+  AlertTriangle,
+  LineChart,
+  PieChart,
+  Users,
+  Eye
+} from 'lucide-react'
 
-interface MoodEntry {
-  id: string
-  mood: string
-  energy_level: number
-  created_at: string
-}
-
-interface JournalEntry {
-  id: string
-  mood: string | null
-  created_at: string
+interface AnalyticsData {
+  moodTrackingDays: number
+  journalTrackingDays: number
+  totalMoodEntries: number
+  totalJournalEntries: number
+  averageMood: number
+  moodStreak: number
+  journalStreak: number
+  combinedStreak: number
+  weeklyMoodGrowth: number
+  weeklyJournalGrowth: number
+  moodDistribution: Record<string, number>
+  journalLengthStats: {
+    averageLength: number
+    longestEntry: number
+    shortestEntry: number
+  }
+  recentActivity: Array<{
+    type: 'mood' | 'journal'
+    date: string
+    title: string
+    value?: string
+  }>
 }
 
 export default function AnalyticsPage() {
   const { user } = useAuth()
-  const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([])
-  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (user) {
-      fetchAnalyticsData()
+      fetchAnalytics()
     }
   }, [user])
 
-  const fetchAnalyticsData = useCallback(async () => {
+  const fetchAnalytics = async () => {
     if (!user) return
-    
+
+    setLoading(true)
     try {
-      const { moodEntries, journalEntries } = await fetchAnalyticsDataOptimized(user.id)
-      setMoodEntries(moodEntries)
-      setJournalEntries(journalEntries)
+      // Fetch mood entries
+      const { data: moodEntries } = await supabase
+        .from('mood_entries')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      // Fetch journal entries
+      const { data: journalEntries } = await supabase
+        .from('journal_entries')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      // Calculate analytics
+      const totalMoodEntries = moodEntries?.length || 0
+      const totalJournalEntries = journalEntries?.length || 0
+
+      // Calculate tracking days
+      const moodTrackingDays = moodEntries ? 
+        new Set(moodEntries.map(entry => new Date(entry.created_at).toDateString())).size : 0
+      const journalTrackingDays = journalEntries ? 
+        new Set(journalEntries.map(entry => new Date(entry.created_at).toDateString())).size : 0
+
+      // Calculate average mood
+      const moodScores = { excellent: 5, good: 4, neutral: 3, bad: 2, terrible: 1 }
+      const scores = moodEntries?.map(entry => moodScores[entry.mood as keyof typeof moodScores]) || []
+      const averageMood = scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 3
+
+      // Calculate streaks
+      const moodStreak = calculateStreak(moodEntries || [])
+      const journalStreak = calculateStreak(journalEntries || [])
+      const combinedStreak = calculateCombinedStreak(moodEntries || [], journalEntries || [])
+
+      // Calculate mood distribution
+      const moodDistribution = moodEntries?.reduce((acc, entry) => {
+        acc[entry.mood] = (acc[entry.mood] || 0) + 1
+        return acc
+      }, {} as Record<string, number>) || {}
+
+      // Calculate journal length stats
+      const journalLengthStats = {
+        averageLength: journalEntries?.length > 0 ? 
+          journalEntries.reduce((sum, entry) => sum + entry.content.length, 0) / journalEntries.length : 0,
+        longestEntry: journalEntries?.length > 0 ? 
+          Math.max(...journalEntries.map(entry => entry.content.length)) : 0,
+        shortestEntry: journalEntries?.length > 0 ? 
+          Math.min(...journalEntries.map(entry => entry.content.length)) : 0
+      }
+
+      // Calculate weekly growth
+      const thisWeekMoods = moodEntries?.filter(entry => {
+        const entryDate = new Date(entry.created_at)
+        const weekAgo = new Date()
+        weekAgo.setDate(weekAgo.getDate() - 7)
+        return entryDate >= weekAgo
+      }) || []
+
+      const lastWeekMoods = moodEntries?.filter(entry => {
+        const entryDate = new Date(entry.created_at)
+        const weekAgo = new Date()
+        weekAgo.setDate(weekAgo.getDate() - 7)
+        const twoWeeksAgo = new Date()
+        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+        return entryDate >= twoWeeksAgo && entryDate < weekAgo
+      }) || []
+
+      const weeklyMoodGrowth = lastWeekMoods.length > 0 ? 
+        ((thisWeekMoods.length - lastWeekMoods.length) / lastWeekMoods.length) * 100 : 0
+
+      const thisWeekJournals = journalEntries?.filter(entry => {
+        const entryDate = new Date(entry.created_at)
+        const weekAgo = new Date()
+        weekAgo.setDate(weekAgo.getDate() - 7)
+        return entryDate >= weekAgo
+      }) || []
+
+      const lastWeekJournals = journalEntries?.filter(entry => {
+        const entryDate = new Date(entry.created_at)
+        const weekAgo = new Date()
+        weekAgo.setDate(weekAgo.getDate() - 7)
+        const twoWeeksAgo = new Date()
+        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+        return entryDate >= twoWeeksAgo && entryDate < weekAgo
+      }) || []
+
+      const weeklyJournalGrowth = lastWeekJournals.length > 0 ? 
+        ((thisWeekJournals.length - lastWeekJournals.length) / lastWeekJournals.length) * 100 : 0
+
+      // Create recent activity
+      const recentActivity = []
+      const allEntries = [
+        ...(moodEntries || []).map(entry => ({ ...entry, type: 'mood' as const })),
+        ...(journalEntries || []).map(entry => ({ ...entry, type: 'journal' as const }))
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+      recentActivity.push(...allEntries.slice(0, 10).map(entry => ({
+        type: entry.type,
+        date: entry.created_at,
+        title: entry.type === 'mood' ? `Mood: ${entry.mood}` : entry.title || 'Untitled',
+        value: entry.type === 'mood' ? entry.mood : entry.content?.substring(0, 50) + '...'
+      })))
+
+      setAnalytics({
+        moodTrackingDays,
+        journalTrackingDays,
+        totalMoodEntries,
+        totalJournalEntries,
+        averageMood,
+        moodStreak,
+        journalStreak,
+        combinedStreak,
+        weeklyMoodGrowth,
+        weeklyJournalGrowth,
+        moodDistribution,
+        journalLengthStats,
+        recentActivity
+      })
     } catch (error) {
-      console.error('Error fetching analytics data:', error)
+      console.error('Error fetching analytics:', error)
+      toast.error('Failed to load analytics')
     } finally {
       setLoading(false)
     }
-  }, [user])
-
-  const getMoodDistribution = () => {
-    const distribution: Record<string, number> = {}
-    moodEntries.forEach(entry => {
-      distribution[entry.mood] = (distribution[entry.mood] || 0) + 1
-    })
-    return distribution
   }
 
-  const getWeeklyTrend = () => {
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date()
-      date.setDate(date.getDate() - i)
-      return date.toISOString().split('T')[0]
-    }).reverse()
-
-    return last7Days.map(date => {
-      const dayEntries = moodEntries.filter(entry => 
-        entry.created_at.startsWith(date)
-      )
-      
-      if (dayEntries.length === 0) return { date, averageMood: null }
-      
-      const moodValues = { excellent: 5, good: 4, neutral: 3, bad: 2, terrible: 1 }
-      const averageMood = dayEntries.reduce((sum, entry) => {
-        return sum + (moodValues[entry.mood as keyof typeof moodValues] || 3)
-      }, 0) / dayEntries.length
-      
-      return { date, averageMood: Math.round(averageMood * 10) / 10 }
-    })
-  }
-
-  const getInsights = () => {
-    const insights = []
+  const calculateStreak = (entries: any[]) => {
+    if (entries.length === 0) return 0
     
-    if (moodEntries.length === 0) {
-      insights.push("Start tracking your mood to see insights here!")
-      return insights
-    }
-
-    // Most common mood
-    const moodDistribution = getMoodDistribution()
-    const mostCommonMood = Object.entries(moodDistribution).sort((a, b) => b[1] - a[1])[0]
-    if (mostCommonMood) {
-      insights.push(`Your most common mood is ${mostCommonMood[0]} (${mostCommonMood[1]} times)`)
-    }
-
-    // Average energy level
-    const avgEnergy = moodEntries.reduce((sum, entry) => sum + entry.energy_level, 0) / moodEntries.length
-    insights.push(`Your average energy level is ${Math.round(avgEnergy * 10) / 10}/10`)
-
-    // Streak calculation
-    let currentStreak = 0
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const sortedEntries = entries.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    const uniqueDates = [...new Set(sortedEntries.map(entry => new Date(entry.created_at).toDateString()))]
+    uniqueDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
     
-    for (let i = 0; i < 30; i++) {
-      const checkDate = new Date(today)
-      checkDate.setDate(today.getDate() - i)
-      
-      const hasEntry = moodEntries.some(entry => {
-        const entryDate = new Date(entry.created_at)
-        entryDate.setHours(0, 0, 0, 0)
-        return entryDate.getTime() === checkDate.getTime()
-      })
-      
-      if (hasEntry) {
-        currentStreak++
+    let streak = 0
+    for (let i = 0; i < uniqueDates.length - 1; i++) {
+      const currentDate = new Date(uniqueDates[i])
+      const nextDate = new Date(uniqueDates[i + 1])
+      const dayDiff = Math.floor((currentDate.getTime() - nextDate.getTime()) / (1000 * 60 * 60 * 24))
+      if (dayDiff <= 1) {
+        streak++
       } else {
         break
       }
     }
-    
-    if (currentStreak > 0) {
-      insights.push(`You're on a ${currentStreak}-day tracking streak!`)
-    }
-
-    return insights
+    return streak
   }
 
-  const weeklyTrend = getWeeklyTrend()
-  const moodDistribution = getMoodDistribution()
-  const insights = getInsights()
+  const calculateCombinedStreak = (moodEntries: any[], journalEntries: any[]) => {
+    const allEntries = [...moodEntries, ...journalEntries]
+    return calculateStreak(allEntries)
+  }
+
+  const getMoodColor = (mood: string) => {
+    switch (mood) {
+      case 'excellent': return 'text-green-600 bg-green-100'
+      case 'good': return 'text-blue-600 bg-blue-100'
+      case 'neutral': return 'text-yellow-600 bg-yellow-100'
+      case 'bad': return 'text-orange-600 bg-orange-100'
+      case 'terrible': return 'text-red-600 bg-red-100'
+      default: return 'text-zinc-600 bg-zinc-100'
+    }
+  }
 
   if (loading) {
     return (
       <div className="space-y-6">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
+          <div className="h-8 bg-gradient-to-r from-zinc-200 to-zinc-300 rounded-xl w-1/4 mb-6"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-32 bg-gradient-to-r from-zinc-200 to-zinc-300 rounded-2xl"></div>
             ))}
           </div>
         </div>
@@ -144,163 +247,228 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div>
-        <div className="flex items-center space-x-3 mb-2">
-          <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-            <BarChart3 className="h-6 w-6 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Analytics</h1>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-zinc-900">Analytics</h1>
+          <p className="text-zinc-600 mt-2">Detailed insights into your mental health tracking patterns.</p>
         </div>
-        <p className="text-gray-600 mt-2">
-          Understand your mental health patterns and trends over time.
-        </p>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 hover-lift group">
-          <div className="flex items-center">
-            <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
-              <BarChart3 className="h-6 w-6 text-white" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Entries</p>
-              <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{moodEntries.length}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 hover-lift group">
-          <div className="flex items-center">
-            <div className="p-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
-              <Activity className="h-6 w-6 text-white" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Journal Entries</p>
-              <p className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">{journalEntries.length}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 hover-lift group">
-          <div className="flex items-center">
-            <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
-              <TrendingUp className="h-6 w-6 text-white" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Avg Energy</p>
-              <p className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                {moodEntries.length > 0 
-                  ? Math.round(moodEntries.reduce((sum, entry) => sum + entry.energy_level, 0) / moodEntries.length * 10) / 10
-                  : 0
-                }/10
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 hover-lift group">
-          <div className="flex items-center">
-            <div className="p-3 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
-              <Calendar className="h-6 w-6 text-white" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Tracking Days</p>
-              <p className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-                {moodEntries.length > 0 ? Math.ceil((new Date().getTime() - new Date(moodEntries[moodEntries.length - 1].created_at).getTime()) / (1000 * 60 * 60 * 24)) : 0}
-              </p>
-            </div>
-          </div>
+        <div className="flex items-center space-x-2 text-sm text-zinc-500">
+          <Calendar className="h-4 w-4" />
+          <span>Last updated: {new Date().toLocaleDateString()}</span>
         </div>
       </div>
 
-      {/* Weekly Trend */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="h-8 w-8 bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg flex items-center justify-center shadow-lg">
-            <TrendingUp className="h-5 w-5 text-white" />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900">Weekly Trend</h2>
-        </div>
-        <div className="grid grid-cols-7 gap-2">
-          {weeklyTrend.map((day, index) => (
-            <div key={index} className="text-center">
-              <div className="text-xs text-gray-500 mb-1">{day.date}</div>
-              <div className="h-20 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-100/50 flex items-end justify-center p-1">
-                {day.averageMood ? (
-                  <div 
-                    className="w-full bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg transition-all duration-300 hover:scale-105"
-                    style={{ height: `${(day.averageMood / 5) * 100}%` }}
-                  ></div>
-                ) : (
-                  <div className="text-xs text-gray-400">No data</div>
-                )}
-              </div>
-              <div className="text-xs text-gray-600 mt-1">
-                {day.averageMood ? `${day.averageMood}/5` : '-'}
-              </div>
+      {/* Tracking Days Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-zinc-600">Mood Tracking Days</p>
+              <p className="text-3xl font-bold text-zinc-900">{analytics?.moodTrackingDays || 0}</p>
             </div>
-          ))}
+            <div className="h-12 w-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+              <Heart className="h-6 w-6 text-white" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center space-x-2">
+            <Calendar className="h-4 w-4 text-green-600" />
+            <span className="text-sm text-green-600">Total days tracked</span>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-zinc-600">Journal Tracking Days</p>
+              <p className="text-3xl font-bold text-zinc-900">{analytics?.journalTrackingDays || 0}</p>
+            </div>
+            <div className="h-12 w-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+              <BookOpen className="h-6 w-6 text-white" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center space-x-2">
+            <Calendar className="h-4 w-4 text-blue-600" />
+            <span className="text-sm text-blue-600">Total days tracked</span>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-zinc-600">Mood Streak</p>
+              <p className="text-3xl font-bold text-zinc-900">{analytics?.moodStreak || 0} days</p>
+            </div>
+            <div className="h-12 w-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
+              <Award className="h-6 w-6 text-white" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center space-x-2">
+            <Zap className="h-4 w-4 text-purple-600" />
+            <span className="text-sm text-purple-600">Consecutive days</span>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-zinc-600">Journal Streak</p>
+              <p className="text-3xl font-bold text-zinc-900">{analytics?.journalStreak || 0} days</p>
+            </div>
+            <div className="h-12 w-12 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl flex items-center justify-center">
+              <Star className="h-6 w-6 text-white" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center space-x-2">
+            <Zap className="h-4 w-4 text-orange-600" />
+            <span className="text-sm text-orange-600">Consecutive days</span>
+          </div>
         </div>
       </div>
 
-      {/* Mood Distribution */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="h-8 w-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
-              <BarChart3 className="h-5 w-5 text-white" />
+      {/* Detailed Stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Mood Analytics */}
+        <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-sm">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="h-8 w-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+              <Heart className="h-5 w-5 text-white" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">Mood Distribution</h2>
+            <h3 className="text-lg font-semibold text-zinc-900">Mood Analytics</h3>
           </div>
-          {Object.keys(moodDistribution).length > 0 ? (
-            <div className="space-y-3">
-              {Object.entries(moodDistribution).map(([mood, count]) => (
-                <div key={mood} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-lg">{getMoodEmoji(mood)}</span>
-                    <span className="capitalize text-gray-900">{mood}</span>
+          
+          <div className="space-y-4">
+            <div className="flex justify-between items-center p-4 bg-zinc-50 rounded-xl">
+              <span className="text-sm font-medium text-zinc-700">Total Entries</span>
+              <span className="text-lg font-bold text-zinc-900">{analytics?.totalMoodEntries || 0}</span>
+            </div>
+            
+            <div className="flex justify-between items-center p-4 bg-zinc-50 rounded-xl">
+              <span className="text-sm font-medium text-zinc-700">Average Mood</span>
+              <span className="text-lg font-bold text-zinc-900">{analytics?.averageMood.toFixed(1) || '3.0'}</span>
+            </div>
+            
+            <div className="flex justify-between items-center p-4 bg-zinc-50 rounded-xl">
+              <span className="text-sm font-medium text-zinc-700">Weekly Growth</span>
+              <span className={`text-lg font-bold ${analytics?.weeklyMoodGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {analytics?.weeklyMoodGrowth >= 0 ? '+' : ''}{Math.round(analytics?.weeklyMoodGrowth || 0)}%
+              </span>
+            </div>
+          </div>
+
+          {/* Mood Distribution */}
+          {analytics?.moodDistribution && Object.keys(analytics.moodDistribution).length > 0 && (
+            <div className="mt-6">
+              <h4 className="text-sm font-medium text-zinc-700 mb-3">Mood Distribution</h4>
+              <div className="space-y-2">
+                {Object.entries(analytics.moodDistribution).map(([mood, count]) => (
+                  <div key={mood} className="flex items-center justify-between p-3 bg-zinc-50 rounded-lg">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getMoodColor(mood)}`}>
+                      {mood}
+                    </span>
+                    <span className="text-sm font-medium text-zinc-900">{count} entries</span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-24 bg-gray-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full ${getMoodColor(mood).split(' ')[1]}`}
-                        style={{ width: `${(count / moodEntries.length) * 100}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-sm text-gray-600 w-8 text-right">{count}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <div className="h-12 w-12 bg-gradient-to-r from-gray-200 to-gray-300 rounded-xl flex items-center justify-center mx-auto mb-3">
-                <BarChart3 className="h-6 w-6 text-gray-400" />
+                ))}
               </div>
-              <p className="text-gray-500">No mood data available</p>
             </div>
           )}
         </div>
 
-        {/* Insights */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="h-8 w-8 bg-gradient-to-r from-yellow-500 to-orange-600 rounded-lg flex items-center justify-center shadow-lg">
-              <Lightbulb className="h-5 w-5 text-white" />
+        {/* Journal Analytics */}
+        <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-sm">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+              <BookOpen className="h-5 w-5 text-white" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">Insights</h2>
+            <h3 className="text-lg font-semibold text-zinc-900">Journal Analytics</h3>
           </div>
-          <div className="space-y-3">
-            {insights.map((insight, index) => (
-              <div key={index} className="flex items-start space-x-2 p-3 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl border border-yellow-100/50">
-                <div className="w-2 h-2 bg-gradient-to-r from-yellow-500 to-orange-600 rounded-full mt-2 flex-shrink-0"></div>
-                <p className="text-sm text-gray-700">{insight}</p>
+          
+          <div className="space-y-4">
+            <div className="flex justify-between items-center p-4 bg-zinc-50 rounded-xl">
+              <span className="text-sm font-medium text-zinc-700">Total Entries</span>
+              <span className="text-lg font-bold text-zinc-900">{analytics?.totalJournalEntries || 0}</span>
+            </div>
+            
+            <div className="flex justify-between items-center p-4 bg-zinc-50 rounded-xl">
+              <span className="text-sm font-medium text-zinc-700">Average Length</span>
+              <span className="text-lg font-bold text-zinc-900">{Math.round(analytics?.journalLengthStats.averageLength || 0)} chars</span>
+            </div>
+            
+            <div className="flex justify-between items-center p-4 bg-zinc-50 rounded-xl">
+              <span className="text-sm font-medium text-zinc-700">Weekly Growth</span>
+              <span className={`text-lg font-bold ${analytics?.weeklyJournalGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {analytics?.weeklyJournalGrowth >= 0 ? '+' : ''}{Math.round(analytics?.weeklyJournalGrowth || 0)}%
+              </span>
+            </div>
+          </div>
+
+          {/* Journal Length Stats */}
+          {analytics?.journalLengthStats && (
+            <div className="mt-6">
+              <h4 className="text-sm font-medium text-zinc-700 mb-3">Length Statistics</h4>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center p-3 bg-zinc-50 rounded-lg">
+                  <span className="text-sm text-zinc-700">Longest Entry</span>
+                  <span className="text-sm font-medium text-zinc-900">{analytics.journalLengthStats.longestEntry} chars</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-zinc-50 rounded-lg">
+                  <span className="text-sm text-zinc-700">Shortest Entry</span>
+                  <span className="text-sm font-medium text-zinc-900">{analytics.journalLengthStats.shortestEntry} chars</span>
+                </div>
               </div>
-            ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-sm">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="h-8 w-8 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
+            <Activity className="h-5 w-5 text-white" />
           </div>
+          <h3 className="text-lg font-semibold text-zinc-900">Recent Activity</h3>
+        </div>
+        
+        <div className="space-y-4">
+          {analytics?.recentActivity.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="h-12 w-12 bg-gradient-to-r from-zinc-100 to-zinc-200 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <Activity className="h-6 w-6 text-zinc-400" />
+              </div>
+              <p className="text-zinc-500">No recent activity</p>
+            </div>
+          ) : (
+            analytics?.recentActivity.map((activity, index) => (
+              <div key={index} className="flex items-center justify-between p-4 bg-zinc-50 rounded-xl">
+                <div className="flex items-center space-x-3">
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
+                    activity.type === 'mood' 
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-600' 
+                      : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+                  }`}>
+                    {activity.type === 'mood' ? (
+                      <Heart className="h-4 w-4 text-white" />
+                    ) : (
+                      <BookOpen className="h-4 w-4 text-white" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-zinc-900">{activity.title}</p>
+                    <p className="text-xs text-zinc-500">
+                      {new Date(activity.date).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  activity.type === 'mood' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {activity.type}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

@@ -461,9 +461,6 @@ export default function DashboardLayout({
                 </p>
                 <p className="text-xs text-zinc-500">Premium Member</p>
               </div>
-              <button className="p-1 rounded-lg hover:bg-zinc-200 transition-colors">
-                <ChevronDown className="h-4 w-4 text-zinc-600" />
-              </button>
             </div>
           </div>
         </div>

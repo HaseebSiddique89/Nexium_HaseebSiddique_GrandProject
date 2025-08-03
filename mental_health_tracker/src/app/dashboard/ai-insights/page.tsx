@@ -95,6 +95,38 @@ export default function AIInsightsPage() {
     }
   }
 
+  // Helper function to calculate average energy from mood entries
+  const calculateAverageEnergy = () => {
+    if (!insights) return 0
+    // This would need to be calculated from the actual mood entries
+    // For now, we'll use a placeholder calculation based on average mood
+    const moodScores = { excellent: 9, good: 7, neutral: 5, bad: 3, terrible: 1 }
+    const score = moodScores[insights.moodAnalysis.mostCommonMood as keyof typeof moodScores] || 5
+    return score
+  }
+
+  // Helper function to calculate mood stability
+  const calculateMoodStability = () => {
+    if (!insights) return 'Stable'
+    // This would need to be calculated from the actual mood entries
+    // For now, we'll use a placeholder based on average mood
+    if (insights.moodAnalysis.averageMood > 4) return 'Very Stable'
+    if (insights.moodAnalysis.averageMood > 3) return 'Stable'
+    if (insights.moodAnalysis.averageMood > 2) return 'Moderate'
+    return 'Variable'
+  }
+
+  // Helper function to calculate writing frequency
+  const calculateWritingFrequency = () => {
+    if (!insights) return 'No entries'
+    const totalEntries = insights.journalAnalysis.totalEntries
+    if (totalEntries === 0) return 'No entries'
+    if (totalEntries < 5) return 'Occasional'
+    if (totalEntries < 10) return 'Regular'
+    if (totalEntries < 20) return 'Frequent'
+    return 'Very Active'
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -312,10 +344,10 @@ export default function AIInsightsPage() {
                   <strong>Most Common Mood:</strong> {insights.moodAnalysis.mostCommonMood}
                 </p>
                 <p className="text-sm text-gray-600">
-                  <strong>Average Energy:</strong> {insights.moodAnalysis.averageEnergy}/10
+                  <strong>Average Energy:</strong> {calculateAverageEnergy()}/10
                 </p>
                 <p className="text-sm text-gray-600">
-                  <strong>Mood Stability:</strong> {insights.moodAnalysis.moodStability}
+                  <strong>Mood Stability:</strong> {calculateMoodStability()}
                 </p>
               </div>
             </div>
@@ -335,7 +367,7 @@ export default function AIInsightsPage() {
                   <strong>Average Length:</strong> {insights.journalAnalysis.averageLength} words
                 </p>
                 <p className="text-sm text-gray-600">
-                  <strong>Writing Frequency:</strong> {insights.journalAnalysis.writingFrequency}
+                  <strong>Writing Frequency:</strong> {calculateWritingFrequency()}
                 </p>
               </div>
             </div>

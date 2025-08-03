@@ -74,24 +74,6 @@ export default function LoginPage() {
                   />
                 </div>
               </div>
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Password
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500/50 text-black rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-all duration-300 hover:border-indigo-400"
-                    placeholder="Enter your password"
-                  />
-                </div>
-              </div>
             </div>
 
             <div className="mt-6">
@@ -125,16 +107,9 @@ export default function LoginPage() {
               </div>
 
               <div className="mt-6">
-                <button
-                  type="button"
-                  onClick={handleSignUp}
-                  className="group relative w-full flex justify-center py-3 px-4 border border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 hover:scale-105 hover-lift shadow-lg hover:shadow-xl"
-                >
-                  <div className="flex items-center space-x-2">
-                    <span>Create an account</span>
-                    <Plus className="h-4 w-4 group-hover:rotate-90 transition-transform duration-300" />
-                  </div>
-                </button>
+                <p className="text-center text-sm text-gray-600">
+                  Just enter your email above and we'll send you a magic link to sign in!
+                </p>
               </div>
             </div>
           </div>

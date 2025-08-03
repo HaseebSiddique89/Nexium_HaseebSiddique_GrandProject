@@ -212,7 +212,8 @@ export default function AnalyticsPage() {
         break
       }
     }
-    return streak
+    // Add 1 for the first day if there's at least one entry
+    return uniqueDates.length > 0 ? streak + 1 : 0
   }
 
   const calculateCombinedStreak = (moodEntries: any[], journalEntries: any[]) => {

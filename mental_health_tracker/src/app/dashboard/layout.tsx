@@ -57,7 +57,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { user, signOut } = useAuth()
+  const { user, signOut, loading: authLoading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -65,6 +65,14 @@ export default function DashboardLayout({
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Authentication check - must be before any conditional returns
+  useEffect(() => {
+    if (!authLoading && !user) {
+      console.log('No user found, redirecting to login...')
+      router.push('/auth/login')
+    }
+  }, [user, authLoading, router])
 
   const generateRealisticNotifications = useCallback((moodEntries: MoodEntry[], journalEntries: JournalEntry[]) => {
     const notifications: Notification[] = []
@@ -152,107 +160,54 @@ export default function DashboardLayout({
     }
 
     // 3. Achievement notifications based on actual streaks
-    if (hasMoodEntries) {
-      const moodStreak = calculateMoodStreak(moodEntries)
-      if (moodStreak >= 3 && moodStreak <= 7) {
-        notifications.push({
-          id: notificationId++,
-          type: 'achievement',
-          title: `Mood Tracking Streak! 🎉`,
-          message: `Congratulations! You've maintained your mood tracking streak for ${moodStreak} days. Keep up the great work!`,
-          time: formatTimeAgo(lastMoodEntry!),
-          read: false,
-          action: () => router.push('/dashboard')
-        })
-      } else if (moodStreak >= 7) {
-        notifications.push({
-          id: notificationId++,
-          type: 'achievement',
-          title: `Amazing Consistency! 🌟`,
-          message: `Incredible! You&apos;ve tracked your mood for ${moodStreak} consecutive days. You&apos;re building great habits!`,
-          time: formatTimeAgo(lastMoodEntry!),
-          read: false,
-          action: () => router.push('/dashboard')
-        })
-      }
-    }
+    const moodStreak = calculateMoodStreak(moodEntries)
+    const journalStreak = calculateJournalStreak(journalEntries)
 
-    if (hasJournalEntries) {
-      const journalStreak = calculateJournalStreak(journalEntries)
-      if (journalStreak >= 2 && journalStreak <= 5) {
-        notifications.push({
-          id: notificationId++,
-          type: 'achievement',
-          title: `Journal Writing Streak! 📝`,
-          message: `Great job! You've written in your journal for ${journalStreak} consecutive days.`,
-          time: formatTimeAgo(lastJournalEntry!),
-          read: false,
-          action: () => router.push('/dashboard/journal')
-        })
-      }
-    }
-
-    // 4. AI Insights notifications based on data volume
-    const totalEntries = moodEntries.length + journalEntries.length
-    if (totalEntries >= 5) {
-      // Use the most recent entry time for AI insights notification
-      const mostRecentEntry = moodEntries.length > 0 && journalEntries.length > 0 
-        ? new Date(Math.max(new Date(moodEntries[0].created_at).getTime(), new Date(journalEntries[0].created_at).getTime()))
-        : moodEntries.length > 0 
-          ? new Date(moodEntries[0].created_at)
-          : new Date(journalEntries[0].created_at)
-
+    if (moodStreak >= 3) {
       notifications.push({
         id: notificationId++,
-        type: 'insight',
-        title: 'AI Insights Ready! 🧠',
-        message: `You have ${totalEntries} entries. Check out your personalized AI insights and recommendations.`,
-        time: formatTimeAgo(mostRecentEntry),
+        type: 'achievement',
+        title: `Mood Tracking Streak: ${moodStreak} Days! 🎉`,
+        message: `You've been tracking your mood for ${moodStreak} consecutive days. Consistency is key to mental wellness!`,
+        time: formatTimeAgo(lastMoodEntry!),
         read: true,
-        action: () => router.push('/dashboard/ai-insights')
+        action: () => router.push('/dashboard/mood')
       })
     }
 
-    // 5. Mood pattern insights based on actual data
-    if (hasMoodEntries && moodEntries.length >= 3) {
-      const moodScores = { excellent: 5, good: 4, neutral: 3, bad: 2, terrible: 1 }
-      const scores = moodEntries.map(entry => moodScores[entry.mood as keyof typeof moodScores] || 3)
-      const averageMood = scores.reduce((sum, score) => sum + score, 0) / scores.length
-      const recentMoods = moodEntries.slice(0, 3).map(entry => moodScores[entry.mood as keyof typeof moodScores] || 3)
-      const moodTrend = recentMoods[0] - recentMoods[recentMoods.length - 1]
+    if (journalStreak >= 2) {
+      notifications.push({
+        id: notificationId++,
+        type: 'achievement',
+        title: `Journal Writing Streak: ${journalStreak} Days! ✍️`,
+        message: `You've been writing in your journal for ${journalStreak} consecutive days. Reflection leads to growth!`,
+        time: formatTimeAgo(lastJournalEntry!),
+        read: true,
+        action: () => router.push('/dashboard/journal')
+      })
+    }
 
-      if (averageMood >= 4 && moodTrend > 0) {
+    // 4. Energy level insights based on actual data
+    if (hasMoodEntries) {
+      const recentMoodEntries = moodEntries.slice(0, 7) // Last 7 entries
+      const averageEnergy = recentMoodEntries.reduce((sum, entry) => sum + entry.energy_level, 0) / recentMoodEntries.length
+      
+      if (averageEnergy <= 3) {
         notifications.push({
           id: notificationId++,
           type: 'insight',
-          title: 'Positive Mood Trend! 📈',
-          message: 'Your mood has been improving! Your average mood is excellent and trending upward.',
+          title: 'Low Energy Detected 💤',
+          message: `Your average energy level is ${Math.round(averageEnergy)}/10. Consider rest and self-care activities.`,
           time: formatTimeAgo(lastMoodEntry!),
-          read: true,
-          action: () => router.push('/dashboard/ai-insights')
+          read: false,
+          action: () => router.push('/dashboard/analytics')
         })
-      } else if (averageMood <= 2 && moodTrend < 0) {
-        notifications.push({
-          id: notificationId++,
-          type: 'reminder',
-          title: 'Mood Support Available',
-          message: 'We notice you might be having a tough time. Remember, it\'s okay to seek support when needed.',
-          time: formatTimeAgo(lastMoodEntry!),
-          read: true,
-          action: () => router.push('/dashboard/ai-insights')
-        })
-      }
-    }
-
-    // 6. Energy level insights
-    if (hasMoodEntries) {
-      const averageEnergy = moodEntries.reduce((sum, entry) => sum + entry.energy_level, 0) / moodEntries.length
-      if (averageEnergy >= 8) {
+      } else if (averageEnergy >= 8) {
         notifications.push({
           id: notificationId++,
           type: 'achievement',
           title: 'High Energy Levels! ⚡',
-          message: `Your average energy level is ${Math.round(averageEnergy)}/10. You&apos;re maintaining great energy!`,
+          message: `Your average energy level is ${Math.round(averageEnergy)}/10. You're maintaining great energy!`,
           time: formatTimeAgo(lastMoodEntry!),
           read: true,
           action: () => router.push('/dashboard/mood')
@@ -355,48 +310,37 @@ export default function DashboardLayout({
     return journalDates.length > 0 ? streakDays + 1 : 0
   }
 
-  // Close user menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element
-      if (!target.closest('.user-menu')) {
+      if (!target.closest('.user-menu') && !target.closest('.user-menu-button')) {
         setUserMenuOpen(false)
       }
-      if (!target.closest('.notifications-menu')) {
+      if (!target.closest('.notifications-menu') && !target.closest('.notifications-button')) {
         setNotificationsOpen(false)
       }
     }
 
-    if (userMenuOpen || notificationsOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [userMenuOpen, notificationsOpen])
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const handleSignOut = async () => {
     try {
       await signOut()
       router.push('/')
-      toast.success('Signed out successfully')
-    } catch {
-      toast.error('Failed to sign out')
+    } catch (error) {
+      console.error('Sign out error:', error)
+      toast.error('Failed to sign out. Please try again.')
     }
   }
 
   const handleNotificationClick = (notification: Notification) => {
-    // Mark as read
+    // Mark as read and execute action
     setNotifications(prev => 
       prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
     )
-    
-    // Execute action
     notification.action()
-    
-    // Close notifications dropdown
-    setNotificationsOpen(false)
   }
 
   const markAllAsRead = () => {
@@ -415,13 +359,42 @@ export default function DashboardLayout({
     { name: 'Goals', href: '/dashboard/goals', icon: Target },
   ]
 
-  // Determine which navigation item is currently active
   const getCurrentNavigation = () => {
-    return navigation.map(item => ({
-      ...item,
-      current: pathname === item.href || 
-               (item.href !== '/dashboard' && pathname.startsWith(item.href))
-    }))
+    switch (pathname) {
+      case '/dashboard':
+        return 'Dashboard'
+      case '/dashboard/mood':
+        return 'Mood Tracking'
+      case '/dashboard/journal':
+        return 'Journal'
+      case '/dashboard/analytics':
+        return 'Analytics'
+      case '/dashboard/calendar':
+        return 'Calendar'
+      case '/dashboard/ai-insights':
+        return 'AI Insights'
+      case '/dashboard/settings':
+        return 'Settings'
+      default:
+        return 'Dashboard'
+    }
+  }
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render dashboard if not authenticated
+  if (!user) {
+    return null
   }
 
   return (
@@ -459,12 +432,12 @@ export default function DashboardLayout({
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-2">
-            {getCurrentNavigation().map((item) => (
+            {navigation.map((item) => (
               <a
                 key={item.name}
                 href={item.href}
                 className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  item.current
+                  getCurrentNavigation() === item.name
                     ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg'
                     : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                 }`}

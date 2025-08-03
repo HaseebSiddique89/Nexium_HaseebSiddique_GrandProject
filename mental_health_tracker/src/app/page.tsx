@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { 
   Heart, 
@@ -13,7 +12,6 @@ import {
   Zap, 
   ArrowRight, 
   CheckCircle,
-  Star,
   Users,
   BarChart3,
   Sparkles,
@@ -31,7 +29,6 @@ export default function LandingPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const { signIn } = useAuth()
-  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -67,8 +64,16 @@ export default function LandingPage() {
               </span>
             </div>
             <div className="hidden md:flex items-center space-x-8">
-              <a href="#features" className="text-zinc-600 hover:text-green-600 transition-colors">Features</a>
-              <a href="#pricing" className="text-zinc-600 hover:text-green-600 transition-colors">Pricing</a>
+              <a 
+                href="#features" 
+                onClick={(e) => {
+                  e.preventDefault()
+                  document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })
+                }}
+                className="text-zinc-600 hover:text-green-600 transition-colors cursor-pointer"
+              >
+                Features
+              </a>
               <a href="#about" className="text-zinc-600 hover:text-green-600 transition-colors">About</a>
               <button 
                 onClick={() => document.getElementById('login-section')?.scrollIntoView({ behavior: 'smooth' })}

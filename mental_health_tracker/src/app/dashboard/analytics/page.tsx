@@ -1,30 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import {
-  BarChart3,
-  TrendingUp,
-  TrendingDown,
   Activity,
   Heart,
   Calendar,
-  Clock,
-  Target,
   Award,
-  Sparkles,
-  Brain,
-  BookOpen,
-  Zap,
   Star,
-  CheckCircle,
-  AlertTriangle,
-  LineChart,
-  PieChart,
-  Users,
-  Eye
+  BookOpen,
+  Zap
 } from 'lucide-react'
 
 interface AnalyticsData {
@@ -52,18 +39,56 @@ interface AnalyticsData {
   }>
 }
 
+interface MoodEntry {
+  id: string
+  user_id: string
+  mood: string
+  energy_level: number
+  notes?: string
+  created_at: string
+}
+
+interface JournalEntry {
+  id: string
+  user_id: string
+  title: string
+  content: string
+  created_at: string
+}
+
 export default function AnalyticsPage() {
   const { user } = useAuth()
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (user) {
-      fetchAnalytics()
+  const calculateStreak = (entries: (MoodEntry | JournalEntry)[]) => {
+    if (entries.length === 0) return 0
+    
+    const sortedEntries = entries.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    const uniqueDates = [...new Set(sortedEntries.map(entry => new Date(entry.created_at).toDateString()))]
+    uniqueDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+    
+    let streak = 0
+    for (let i = 0; i < uniqueDates.length - 1; i++) {
+      const currentDate = new Date(uniqueDates[i])
+      const nextDate = new Date(uniqueDates[i + 1])
+      const dayDiff = Math.floor((currentDate.getTime() - nextDate.getTime()) / (1000 * 60 * 60 * 24))
+      if (dayDiff <= 1) {
+        streak++
+      } else {
+        break
+      }
     }
-  }, [user])
+    // Add 1 for the first day if there's at least one entry
+    return uniqueDates.length > 0 ? streak + 1 : 0
+  }
 
-  const fetchAnalytics = async () => {
+  const calculateCombinedStreak = useCallback((moodEntries: MoodEntry[], journalEntries: JournalEntry[]) => {
+    const allEntries = [...moodEntries, ...journalEntries]
+    return calculateStreak(allEntries)
+  }, [])
+
+  const fetchAnalytics = useCallback(async () => {
     if (!user) return
 
     setLoading(true)
@@ -110,11 +135,11 @@ export default function AnalyticsPage() {
 
       // Calculate journal length stats
       const journalLengthStats = {
-        averageLength: journalEntries?.length > 0 ? 
+        averageLength: journalEntries && journalEntries.length > 0 ? 
           journalEntries.reduce((sum, entry) => sum + entry.content.length, 0) / journalEntries.length : 0,
-        longestEntry: journalEntries?.length > 0 ? 
+        longestEntry: journalEntries && journalEntries.length > 0 ? 
           Math.max(...journalEntries.map(entry => entry.content.length)) : 0,
-        shortestEntry: journalEntries?.length > 0 ? 
+        shortestEntry: journalEntries && journalEntries.length > 0 ? 
           Math.min(...journalEntries.map(entry => entry.content.length)) : 0
       }
 
@@ -192,34 +217,13 @@ export default function AnalyticsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user, calculateCombinedStreak])
 
-  const calculateStreak = (entries: any[]) => {
-    if (entries.length === 0) return 0
-    
-    const sortedEntries = entries.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    const uniqueDates = [...new Set(sortedEntries.map(entry => new Date(entry.created_at).toDateString()))]
-    uniqueDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
-    
-    let streak = 0
-    for (let i = 0; i < uniqueDates.length - 1; i++) {
-      const currentDate = new Date(uniqueDates[i])
-      const nextDate = new Date(uniqueDates[i + 1])
-      const dayDiff = Math.floor((currentDate.getTime() - nextDate.getTime()) / (1000 * 60 * 60 * 24))
-      if (dayDiff <= 1) {
-        streak++
-      } else {
-        break
-      }
+  useEffect(() => {
+    if (user) {
+      fetchAnalytics()
     }
-    // Add 1 for the first day if there's at least one entry
-    return uniqueDates.length > 0 ? streak + 1 : 0
-  }
-
-  const calculateCombinedStreak = (moodEntries: any[], journalEntries: any[]) => {
-    const allEntries = [...moodEntries, ...journalEntries]
-    return calculateStreak(allEntries)
-  }
+  }, [user, fetchAnalytics])
 
   const getMoodColor = (mood: string) => {
     switch (mood) {
@@ -350,12 +354,12 @@ export default function AnalyticsPage() {
               <span className="text-lg font-bold text-zinc-900">{analytics?.averageMood.toFixed(1) || '3.0'}</span>
             </div>
             
-            <div className="flex justify-between items-center p-4 bg-zinc-50 rounded-xl">
-              <span className="text-sm font-medium text-zinc-700">Weekly Growth</span>
-              <span className={`text-lg font-bold ${analytics?.weeklyMoodGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {analytics?.weeklyMoodGrowth >= 0 ? '+' : ''}{Math.round(analytics?.weeklyMoodGrowth || 0)}%
-              </span>
-            </div>
+                         <div className="flex justify-between items-center p-4 bg-zinc-50 rounded-xl">
+               <span className="text-sm font-medium text-zinc-700">Weekly Growth</span>
+               <span className={`text-lg font-bold ${(analytics?.weeklyMoodGrowth ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                 {(analytics?.weeklyMoodGrowth ?? 0) >= 0 ? '+' : ''}{Math.round(analytics?.weeklyMoodGrowth || 0)}%
+               </span>
+             </div>
           </div>
 
           {/* Mood Distribution */}
@@ -396,12 +400,12 @@ export default function AnalyticsPage() {
               <span className="text-lg font-bold text-zinc-900">{Math.round(analytics?.journalLengthStats.averageLength || 0)} chars</span>
             </div>
             
-            <div className="flex justify-between items-center p-4 bg-zinc-50 rounded-xl">
-              <span className="text-sm font-medium text-zinc-700">Weekly Growth</span>
-              <span className={`text-lg font-bold ${analytics?.weeklyJournalGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {analytics?.weeklyJournalGrowth >= 0 ? '+' : ''}{Math.round(analytics?.weeklyJournalGrowth || 0)}%
-              </span>
-            </div>
+                         <div className="flex justify-between items-center p-4 bg-zinc-50 rounded-xl">
+               <span className="text-sm font-medium text-zinc-700">Weekly Growth</span>
+               <span className={`text-lg font-bold ${(analytics?.weeklyJournalGrowth ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                 {(analytics?.weeklyJournalGrowth ?? 0) >= 0 ? '+' : ''}{Math.round(analytics?.weeklyJournalGrowth || 0)}%
+               </span>
+             </div>
           </div>
 
           {/* Journal Length Stats */}

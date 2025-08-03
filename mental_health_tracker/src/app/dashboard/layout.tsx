@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter, usePathname } from 'next/navigation'
 import { toast } from 'sonner'
@@ -11,7 +11,6 @@ import {
   BarChart3,
   Calendar,
   BookOpen,
-  Settings,
   LogOut,
   Menu,
   X,
@@ -21,12 +20,37 @@ import {
   Home,
   Activity,
   Target,
-  Sparkles,
   ChevronDown,
-  Plus,
   Clock,
   Award
 } from 'lucide-react'
+
+interface Notification {
+  id: number
+  type: 'reminder' | 'achievement' | 'insight'
+  title: string
+  message: string
+  time: string
+  read: boolean
+  action: () => void
+}
+
+interface MoodEntry {
+  id: string
+  user_id: string
+  mood: string
+  energy_level: number
+  notes?: string
+  created_at: string
+}
+
+interface JournalEntry {
+  id: string
+  user_id: string
+  title: string
+  content: string
+  created_at: string
+}
 
 export default function DashboardLayout({
   children,
@@ -39,63 +63,11 @@ export default function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
-  const [notifications, setNotifications] = useState<any[]>([])
+  const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Fetch user data and generate realistic notifications
-  useEffect(() => {
-    const fetchUserDataAndGenerateNotifications = async () => {
-      if (!user?.id) return
-
-      try {
-        setLoading(true)
-
-        // Fetch mood entries
-        const { data: moodEntries } = await supabase
-          .from('mood_entries')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-
-        // Fetch journal entries
-        const { data: journalEntries } = await supabase
-          .from('journal_entries')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-
-        // Generate realistic notifications based on actual data
-        const realisticNotifications = generateRealisticNotifications(
-          moodEntries || [],
-          journalEntries || [],
-          user.id
-        )
-
-        setNotifications(realisticNotifications)
-      } catch (error) {
-        console.error('Error fetching user data for notifications:', error)
-        // Fallback to basic notifications if data fetch fails
-        setNotifications([
-          {
-            id: 1,
-            type: 'reminder',
-            title: 'Welcome to MentalHealth.ai!',
-            message: 'Start tracking your mood and journal entries to get personalized insights.',
-            time: 'Just now',
-            read: false,
-            action: () => router.push('/dashboard/mood/new')
-          }
-        ])
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchUserDataAndGenerateNotifications()
-  }, [user?.id, router])
-
-  const generateRealisticNotifications = (moodEntries: any[], journalEntries: any[], userId: string) => {
-    const notifications: any[] = []
+  const generateRealisticNotifications = useCallback((moodEntries: MoodEntry[], journalEntries: JournalEntry[]) => {
+    const notifications: Notification[] = []
     const now = new Date()
     let notificationId = 1
 
@@ -197,7 +169,7 @@ export default function DashboardLayout({
           id: notificationId++,
           type: 'achievement',
           title: `Amazing Consistency! 🌟`,
-          message: `Incredible! You've tracked your mood for ${moodStreak} consecutive days. You're building great habits!`,
+          message: `Incredible! You&apos;ve tracked your mood for ${moodStreak} consecutive days. You&apos;re building great habits!`,
           time: formatTimeAgo(lastMoodEntry!),
           read: false,
           action: () => router.push('/dashboard')
@@ -243,8 +215,10 @@ export default function DashboardLayout({
 
     // 5. Mood pattern insights based on actual data
     if (hasMoodEntries && moodEntries.length >= 3) {
-      const averageMood = moodEntries.reduce((sum, entry) => sum + entry.mood, 0) / moodEntries.length
-      const recentMoods = moodEntries.slice(0, 3).map(entry => entry.mood)
+      const moodScores = { excellent: 5, good: 4, neutral: 3, bad: 2, terrible: 1 }
+      const scores = moodEntries.map(entry => moodScores[entry.mood as keyof typeof moodScores] || 3)
+      const averageMood = scores.reduce((sum, score) => sum + score, 0) / scores.length
+      const recentMoods = moodEntries.slice(0, 3).map(entry => moodScores[entry.mood as keyof typeof moodScores] || 3)
       const moodTrend = recentMoods[0] - recentMoods[recentMoods.length - 1]
 
       if (averageMood >= 4 && moodTrend > 0) {
@@ -278,7 +252,7 @@ export default function DashboardLayout({
           id: notificationId++,
           type: 'achievement',
           title: 'High Energy Levels! ⚡',
-          message: `Your average energy level is ${Math.round(averageEnergy)}/10. You're maintaining great energy!`,
+          message: `Your average energy level is ${Math.round(averageEnergy)}/10. You&apos;re maintaining great energy!`,
           time: formatTimeAgo(lastMoodEntry!),
           read: true,
           action: () => router.push('/dashboard/mood')
@@ -287,9 +261,61 @@ export default function DashboardLayout({
     }
 
     return notifications
-  }
+  }, [router])
 
-  const calculateMoodStreak = (moodEntries: any[]) => {
+  useEffect(() => {
+    const fetchUserDataAndGenerateNotifications = async () => {
+      if (!user?.id) return
+
+      try {
+        setLoading(true)
+
+        // Fetch mood entries
+        const { data: moodEntries } = await supabase
+          .from('mood_entries')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+
+        // Fetch journal entries
+        const { data: journalEntries } = await supabase
+          .from('journal_entries')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+
+        // Generate realistic notifications based on actual data
+        const realisticNotifications = generateRealisticNotifications(
+          moodEntries || [],
+          journalEntries || []
+        )
+
+        setNotifications(realisticNotifications)
+      } catch (error) {
+        console.error('Error fetching user data for notifications:', error)
+        // Fallback to basic notifications if data fetch fails
+        setNotifications([
+          {
+            id: 1,
+            type: 'reminder',
+            title: 'Welcome to MentalHealth.ai!',
+            message: 'Start tracking your mood and journal entries to get personalized insights.',
+            time: 'Just now',
+            read: false,
+            action: () => router.push('/dashboard/mood/new')
+          }
+        ])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (user?.id) {
+      fetchUserDataAndGenerateNotifications()
+    }
+  }, [user?.id, router, generateRealisticNotifications])
+
+  const calculateMoodStreak = (moodEntries: MoodEntry[]) => {
     if (moodEntries.length === 0) return 0
 
     const moodDates = [...new Set(moodEntries.map(entry => new Date(entry.created_at).toDateString()))]
@@ -309,7 +335,7 @@ export default function DashboardLayout({
     return moodDates.length > 0 ? streakDays + 1 : 0
   }
 
-  const calculateJournalStreak = (journalEntries: any[]) => {
+  const calculateJournalStreak = (journalEntries: JournalEntry[]) => {
     if (journalEntries.length === 0) return 0
 
     const journalDates = [...new Set(journalEntries.map(entry => new Date(entry.created_at).toDateString()))]
@@ -355,12 +381,12 @@ export default function DashboardLayout({
       await signOut()
       router.push('/')
       toast.success('Signed out successfully')
-    } catch (error) {
+    } catch {
       toast.error('Failed to sign out')
     }
   }
 
-  const handleNotificationClick = (notification: any) => {
+  const handleNotificationClick = (notification: Notification) => {
     // Mark as read
     setNotifications(prev => 
       prev.map(n => n.id === notification.id ? { ...n, read: true } : n)

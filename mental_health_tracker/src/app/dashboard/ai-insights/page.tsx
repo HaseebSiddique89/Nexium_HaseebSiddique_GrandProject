@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { generateEnhancedAIInsights, type EnhancedAIInsights } from '@/lib/ai-insights-enhanced'
 import { getAIConfig, isAIEnabled } from '@/lib/ai-config'
@@ -47,14 +47,7 @@ export default function AIInsightsPage() {
   const [realMoodData, setRealMoodData] = useState<RealMoodData | null>(null)
   const [realJournalData, setRealJournalData] = useState<RealJournalData | null>(null)
 
-  useEffect(() => {
-    if (user) {
-      fetchAIInsights()
-      fetchRealData()
-    }
-  }, [user])
-
-  const fetchRealData = async () => {
+  const fetchRealData = useCallback(async () => {
     if (!user) return
 
     try {
@@ -79,11 +72,19 @@ export default function AIInsightsPage() {
         const averageMood = scores.reduce((sum, score) => sum + score, 0) / scores.length
 
         // Calculate most common mood
-        const moodCounts = moodEntries.reduce((acc, entry) => {
-          acc[entry.mood] = (acc[entry.mood] || 0) + 1
-          return acc
-        }, {} as Record<string, number>)
-        const mostCommonMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'neutral'
+        const moodCounts: Record<string, number> = {}
+        moodEntries.forEach(entry => {
+          moodCounts[entry.mood] = (moodCounts[entry.mood] || 0) + 1
+        })
+        
+        let mostCommonMood = 'neutral'
+        let maxCount = 0
+        for (const [mood, count] of Object.entries(moodCounts)) {
+          if (count > maxCount) {
+            maxCount = count
+            mostCommonMood = mood
+          }
+        }
 
         // Calculate average energy
         const energyLevels = moodEntries.filter(entry => entry.energy_level).map(entry => entry.energy_level)
@@ -130,9 +131,9 @@ export default function AIInsightsPage() {
     } catch (error) {
       console.error('Error fetching real data:', error)
     }
-  }
+  }, [user])
 
-  const fetchAIInsights = async () => {
+  const fetchAIInsights = useCallback(async () => {
     if (!user) return
 
     setLoading(true)
@@ -167,15 +168,16 @@ export default function AIInsightsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
 
-  const getSentimentColor = (sentiment: string) => {
-    switch (sentiment) {
-      case 'positive': return 'text-green-600 bg-green-100'
-      case 'negative': return 'text-red-600 bg-red-100'
-      default: return 'text-yellow-600 bg-yellow-100'
+  useEffect(() => {
+    if (user) {
+      fetchAIInsights()
+      fetchRealData()
     }
-  }
+  }, [user, fetchAIInsights, fetchRealData])
+
+
 
   const getPredictionIcon = (prediction: string) => {
     switch (prediction) {

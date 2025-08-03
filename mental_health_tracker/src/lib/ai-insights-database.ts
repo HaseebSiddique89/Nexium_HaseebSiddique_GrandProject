@@ -191,7 +191,7 @@ export async function testDatabaseAccess(): Promise<void> {
     console.log('🧪 Testing database access for ai_insights table...')
     
     // Test if we can query the table
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('ai_insights')
       .select('count')
       .limit(1)
@@ -259,7 +259,7 @@ export async function cleanupExpiredAIInsights(): Promise<void> {
     const now = new Date().toISOString()
     
     // First, let's check if we can access the table
-    const { data: testData, error: testError } = await supabase
+    const { error: testError } = await supabase
       .from('ai_insights')
       .select('id')
       .limit(1)
@@ -275,7 +275,7 @@ export async function cleanupExpiredAIInsights(): Promise<void> {
     }
     
     // Now try to delete expired records
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('ai_insights')
       .delete()
       .lt('expires_at', now)

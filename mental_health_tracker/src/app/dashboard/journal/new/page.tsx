@@ -5,16 +5,13 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
-import {
-  Activity,
-  BookOpen,
-  Calendar,
-  Clock,
-  ArrowLeft,
-  Save,
-  Plus,
-  PenTool,
-  Sparkles
+import { 
+  ArrowLeft, 
+  Save, 
+  Sparkles, 
+  BookOpen, 
+  CheckCircle, 
+  Lightbulb
 } from 'lucide-react'
 
 export default function NewJournalEntryPage() {
@@ -26,16 +23,29 @@ export default function NewJournalEntryPage() {
     content: ''
   })
 
+  const writingPrompts = [
+    "How are you feeling today?",
+    "What's on your mind?",
+    "Describe a moment that made you smile today",
+    "What challenges did you face today?",
+    "What are you grateful for?",
+    "What would you like to improve about yourself?",
+    "Describe your ideal day",
+    "What&apos;s something you&apos;re looking forward to?",
+    "What's something that's been bothering you?",
+    "What's a goal you have for this week?"
+  ]
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!user) {
-      toast.error('Please sign in to add journal entries')
+    if (!formData.title.trim() || !formData.content.trim()) {
+      toast.error('Please fill in both title and content')
       return
     }
 
-    if (!formData.title.trim() || !formData.content.trim()) {
-      toast.error('Please fill in both title and content')
+    if (!user?.id) {
+      toast.error('You must be logged in to create a journal entry')
       return
     }
 
@@ -43,183 +53,185 @@ export default function NewJournalEntryPage() {
     try {
       const { error } = await supabase
         .from('journal_entries')
-        .insert({
-          user_id: user.id,
-          title: formData.title.trim(),
-          content: formData.content.trim()
-        })
+        .insert([
+          {
+            user_id: user.id,
+            title: formData.title.trim(),
+            content: formData.content.trim()
+          }
+        ])
 
-      if (error) throw error
-
-      toast.success('Journal entry added successfully!')
-      router.push('/dashboard/journal')
+      if (error) {
+        console.error('Error adding journal entry:', error)
+        toast.error('Failed to save journal entry. Please try again.')
+      } else {
+        toast.success('Journal entry saved successfully!')
+        router.push('/dashboard/journal')
+      }
     } catch (error) {
       console.error('Error adding journal entry:', error)
-      toast.error('Failed to add journal entry')
+      toast.error('Failed to save journal entry. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const addPromptToContent = (prompt: string) => {
+    setFormData(prev => ({
+      ...prev,
+      content: prev.content + (prev.content ? '\n\n' : '') + prompt
+    }))
+  }
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <button
             onClick={() => router.back()}
-            className="p-2 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-colors"
+            className="p-2 rounded-lg hover:bg-zinc-100 transition-colors"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5 text-zinc-600" />
           </button>
           <div>
-            <h1 className="text-3xl font-bold text-zinc-900">New Journal Entry</h1>
-            <p className="text-zinc-600 mt-2">Write about your thoughts and feelings</p>
+            <h1 className="text-2xl font-bold text-zinc-900">New Journal Entry</h1>
+            <p className="text-zinc-600">Capture your thoughts and feelings</p>
           </div>
         </div>
-        <div className="flex items-center space-x-2 text-sm text-zinc-500">
-          <Clock className="h-4 w-4" />
-          <span>{new Date().toLocaleDateString()}</span>
-        </div>
+        
+        <button
+          onClick={handleSubmit}
+          disabled={loading || !formData.title.trim() || !formData.content.trim()}
+          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-xl font-semibold transition-all duration-300 hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+        >
+          <Save className="h-4 w-4" />
+          <span>{loading ? 'Saving...' : 'Save Entry'}</span>
+        </button>
       </div>
 
-      {/* Form */}
-      <div className="max-w-4xl">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Title */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Form */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Title Input */}
           <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-sm">
-            <h2 className="text-lg font-semibold text-zinc-900 mb-4">Entry Title</h2>
+            <label htmlFor="title" className="block text-sm font-medium text-zinc-700 mb-2">
+              Entry Title
+            </label>
             <input
+              id="title"
               type="text"
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={(e) => handleInputChange('title', e.target.value)}
+              className="w-full px-4 py-3 border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 text-zinc-900 placeholder-zinc-500"
               placeholder="Give your entry a meaningful title..."
-              className="w-full p-4 border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 text-lg"
               maxLength={100}
             />
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-xs text-zinc-500">Keep it concise and descriptive</span>
-              <span className="text-xs text-zinc-500">{formData.title.length}/100</span>
-            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              {formData.title.length}/100 characters
+            </p>
           </div>
 
-          {/* Content */}
+          {/* Content Input */}
           <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-sm">
-            <h2 className="text-lg font-semibold text-zinc-900 mb-4">Your Thoughts</h2>
+            <label htmlFor="content" className="block text-sm font-medium text-zinc-700 mb-2">
+              Your Thoughts
+            </label>
             <textarea
+              id="content"
               value={formData.content}
-              onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              placeholder="Write freely about your day, thoughts, feelings, or anything on your mind. Don't worry about perfect grammar or structure - just let your thoughts flow..."
-              className="w-full h-96 p-4 border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 resize-none text-base leading-relaxed"
+              onChange={(e) => handleInputChange('content', e.target.value)}
+              rows={12}
+              className="w-full px-4 py-3 border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 text-zinc-900 placeholder-zinc-500 resize-none"
+              placeholder="Start writing your thoughts, feelings, or experiences here..."
             />
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-xs text-zinc-500">Express yourself freely</span>
-              <span className="text-xs text-zinc-500">{formData.content.length} characters</span>
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-zinc-500">
+                {formData.content.length} characters
+              </p>
+              <div className="flex items-center space-x-2 text-xs text-zinc-500">
+                <BookOpen className="h-3 w-3" />
+                <span>Journal Entry</span>
+              </div>
             </div>
           </div>
+        </div>
 
+        {/* Sidebar */}
+        <div className="space-y-6">
           {/* Writing Prompts */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200">
-            <h3 className="text-lg font-semibold text-zinc-900 mb-4 flex items-center space-x-2">
-              <Sparkles className="h-5 w-5 text-blue-600" />
-              <span>Writing Prompts (Optional)</span>
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
+          <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-sm">
+            <div className="flex items-center space-x-2 mb-4">
+              <Lightbulb className="h-5 w-5 text-yellow-500" />
+              <h3 className="text-lg font-semibold text-zinc-900">Writing Prompts</h3>
+            </div>
+            <div className="space-y-3">
+              {writingPrompts.map((prompt, index) => (
                 <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, title: 'Today\'s Highlights' })}
-                  className="text-left p-3 bg-white rounded-xl border border-blue-200 hover:border-blue-300 transition-colors w-full"
+                  key={index}
+                  onClick={() => addPromptToContent(prompt)}
+                  className="w-full text-left p-3 bg-zinc-50 hover:bg-zinc-100 rounded-xl transition-colors text-sm text-zinc-700 hover:text-zinc-900"
                 >
-                  <h4 className="font-medium text-zinc-900">Today's Highlights</h4>
-                  <p className="text-sm text-zinc-600">What made today special?</p>
+                  {prompt}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, title: 'Challenges & Growth' })}
-                  className="text-left p-3 bg-white rounded-xl border border-blue-200 hover:border-blue-300 transition-colors w-full"
-                >
-                  <h4 className="font-medium text-zinc-900">Challenges & Growth</h4>
-                  <p className="text-sm text-zinc-600">What difficulties did you face?</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, title: 'Gratitude Journal' })}
-                  className="text-left p-3 bg-white rounded-xl border border-blue-200 hover:border-blue-300 transition-colors w-full"
-                >
-                  <h4 className="font-medium text-zinc-900">Gratitude Journal</h4>
-                  <p className="text-sm text-zinc-600">What are you thankful for today?</p>
-                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tips */}
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-200">
+            <div className="flex items-center space-x-2 mb-4">
+              <Sparkles className="h-5 w-5 text-green-600" />
+              <h3 className="text-lg font-semibold text-zinc-900">Writing Tips</h3>
+            </div>
+            <div className="space-y-3 text-sm text-zinc-700">
+              <div className="flex items-start space-x-2">
+                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span>Write freely without worrying about grammar</span>
               </div>
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, title: 'Emotional Check-in' })}
-                  className="text-left p-3 bg-white rounded-xl border border-blue-200 hover:border-blue-300 transition-colors w-full"
-                >
-                  <h4 className="font-medium text-zinc-900">Emotional Check-in</h4>
-                  <p className="text-sm text-zinc-600">How are you feeling right now?</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, title: 'Goals & Dreams' })}
-                  className="text-left p-3 bg-white rounded-xl border border-blue-200 hover:border-blue-300 transition-colors w-full"
-                >
-                  <h4 className="font-medium text-zinc-900">Goals & Dreams</h4>
-                  <p className="text-sm text-zinc-600">What are you working towards?</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, title: 'Reflection & Insights' })}
-                  className="text-left p-3 bg-white rounded-xl border border-blue-200 hover:border-blue-300 transition-colors w-full"
-                >
-                  <h4 className="font-medium text-zinc-900">Reflection & Insights</h4>
-                  <p className="text-sm text-zinc-600">What did you learn today?</p>
-                </button>
+              <div className="flex items-start space-x-2">
+                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span>Focus on your feelings and emotions</span>
+              </div>
+              <div className="flex items-start space-x-2">
+                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span>Be honest with yourself</span>
+              </div>
+              <div className="flex items-start space-x-2">
+                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span>Reflect on your day&apos;s experiences</span>
               </div>
             </div>
           </div>
 
-          {/* Submit Button */}
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="px-6 py-3 text-zinc-700 bg-zinc-100 rounded-xl hover:bg-zinc-200 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !formData.title.trim() || !formData.content.trim()}
-              className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              ) : (
-                <Save className="h-5 w-5" />
-              )}
-              <span>{loading ? 'Saving...' : 'Save Entry'}</span>
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Tips */}
-      <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-200">
-        <h3 className="text-lg font-semibold text-zinc-900 mb-3">💡 Journaling Tips</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-zinc-600">
-          <div className="space-y-2">
-            <p>• Write regularly, even if just a few sentences</p>
-            <p>• Be honest with yourself</p>
-            <p>• Don't worry about perfect writing</p>
-            <p>• Include both positive and challenging experiences</p>
-          </div>
-          <div className="space-y-2">
-            <p>• Reflect on your emotions and reactions</p>
-            <p>• Note patterns in your thoughts</p>
-            <p>• Celebrate small victories</p>
-            <p>• Use prompts when you're stuck</p>
+          {/* Quick Stats */}
+          <div className="bg-white rounded-2xl p-6 border border-zinc-200 shadow-sm">
+            <h3 className="text-lg font-semibold text-zinc-900 mb-4">Entry Stats</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-zinc-600">Characters</span>
+                <span className="text-sm font-medium text-zinc-900">{formData.content.length}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-zinc-600">Words</span>
+                <span className="text-sm font-medium text-zinc-900">
+                  {formData.content.split(/\s+/).filter(word => word.length > 0).length}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-zinc-600">Lines</span>
+                <span className="text-sm font-medium text-zinc-900">
+                  {formData.content.split('\n').length}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

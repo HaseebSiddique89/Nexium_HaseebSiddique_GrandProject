@@ -1,0 +1,19 @@
+{
+  "buildCommand": "pnpm build",
+  "installCommand": "pnpm install",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@next_public_supabase_anon_key",
+    "NEXT_PUBLIC_AI_PROVIDER": "@next_public_ai_provider",
+    "NEXT_PUBLIC_AI_MODEL": "@next_public_ai_model",
+    "NEXT_PUBLIC_AI_API_KEY": "@next_public_ai_api_key",
+    "NEXT_PUBLIC_HUGGINGFACE_TOKEN": "@next_public_huggingface_token"
+  }
+} 

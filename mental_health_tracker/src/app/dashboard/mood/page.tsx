@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -10,18 +10,12 @@ import {
   TrendingUp,
   TrendingDown,
   Activity,
-  Calendar,
-  Clock,
   Plus,
   Edit,
   Trash2,
   BarChart3,
   Target,
   Award,
-  Sparkles,
-  ArrowRight,
-  CheckCircle,
-  AlertTriangle,
   Smile,
   Frown,
   Meh,
@@ -42,15 +36,8 @@ export default function MoodPage() {
   const router = useRouter()
   const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [editingEntry, setEditingEntry] = useState<MoodEntry | null>(null)
 
-  useEffect(() => {
-    if (user) {
-      fetchMoodEntries()
-    }
-  }, [user])
-
-  const fetchMoodEntries = async () => {
+  const fetchMoodEntries = useCallback(async () => {
     if (!user) return
 
     setLoading(true)
@@ -69,7 +56,13 @@ export default function MoodPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
+
+  useEffect(() => {
+    if (user) {
+      fetchMoodEntries()
+    }
+  }, [user, fetchMoodEntries])
 
   const getMoodIcon = (mood: string) => {
     switch (mood) {

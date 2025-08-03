@@ -3,10 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
-import { Calendar, ChevronLeft, ChevronRight, Plus, BarChart3, BookOpen } from 'lucide-react'
-import Link from 'next/link'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isWithinInterval } from 'date-fns'
-import { getMoodEmoji, getMoodColor } from '@/lib/utils'
+import { Calendar, BarChart3, BookOpen } from 'lucide-react'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isWithinInterval } from 'date-fns'
+import { getMoodEmoji } from '@/lib/utils'
 import { fetchUserDataOptimized } from '@/lib/data-optimization'
 import { CalendarSkeleton } from '@/components/LoadingSkeleton'
 
@@ -16,17 +15,26 @@ interface CalendarEntry {
   journalEntries: Array<{ title?: string; content?: string; mood?: string; tags?: string[]; created_at: string }>
 }
 
+interface MoodEntry {
+  mood: string
+  energy_level?: number
+  notes?: string
+  created_at: string
+}
+
+interface JournalEntry {
+  title?: string
+  content?: string
+  mood?: string
+  tags?: string[]
+  created_at: string
+}
+
 export default function CalendarPage() {
   const { user } = useAuth()
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [calendarData, setCalendarData] = useState<Record<string, any>>({})
+  const [currentDate] = useState(new Date())
+  const [calendarData, setCalendarData] = useState<Record<string, CalendarEntry>>({})
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (user) {
-      fetchCalendarData()
-    }
-  }, [user, currentDate])
 
   const fetchCalendarData = useCallback(async () => {
     if (!user) return
@@ -39,31 +47,31 @@ export default function CalendarPage() {
       const currentMonthStart = startOfMonth(currentDate)
       const currentMonthEnd = endOfMonth(currentDate)
       
-      const filteredMoodEntries = moodEntries.filter((entry: any) => {
+      const filteredMoodEntries = moodEntries.filter((entry: MoodEntry) => {
         const entryDate = new Date(entry.created_at)
         return isWithinInterval(entryDate, { start: currentMonthStart, end: currentMonthEnd })
       })
       
-      const filteredJournalEntries = journalEntries.filter((entry: any) => {
+      const filteredJournalEntries = journalEntries.filter((entry: JournalEntry) => {
         const entryDate = new Date(entry.created_at)
         return isWithinInterval(entryDate, { start: currentMonthStart, end: currentMonthEnd })
       })
 
       // Group entries by date
-      const groupedData: Record<string, any> = {}
+      const groupedData: Record<string, CalendarEntry> = {}
       
-      filteredMoodEntries.forEach((entry: any) => {
+      filteredMoodEntries.forEach((entry: MoodEntry) => {
         const dateStr = format(new Date(entry.created_at), 'yyyy-MM-dd')
         if (!groupedData[dateStr]) {
-          groupedData[dateStr] = { moodEntries: [], journalEntries: [] }
+          groupedData[dateStr] = { date: dateStr, moodEntries: [], journalEntries: [] }
         }
         groupedData[dateStr].moodEntries.push(entry)
       })
       
-      filteredJournalEntries.forEach((entry: any) => {
+      filteredJournalEntries.forEach((entry: JournalEntry) => {
         const dateStr = format(new Date(entry.created_at), 'yyyy-MM-dd')
         if (!groupedData[dateStr]) {
-          groupedData[dateStr] = { moodEntries: [], journalEntries: [] }
+          groupedData[dateStr] = { date: dateStr, moodEntries: [], journalEntries: [] }
         }
         groupedData[dateStr].journalEntries.push(entry)
       })
@@ -77,36 +85,20 @@ export default function CalendarPage() {
     }
   }, [user, currentDate])
 
-  const previousMonth = () => {
-    setCurrentDate(subMonths(currentDate, 1))
-  }
-
-  const nextMonth = () => {
-    setCurrentDate(addMonths(currentDate, 1))
-  }
-
-  const getDayClass = (day: Date, entries: CalendarEntry) => {
-    const baseClass = 'h-24 p-2 border border-gray-200 hover:bg-gray-50 transition-colors'
-    
-    if (!isSameMonth(day, currentDate)) {
-      return `${baseClass} bg-gray-100 text-gray-400`
+  useEffect(() => {
+    if (user) {
+      fetchCalendarData()
     }
+  }, [user, fetchCalendarData])
 
-    if (entries.moodEntries.length > 0 || entries.journalEntries.length > 0) {
-      return `${baseClass} bg-blue-50 border-blue-200`
-    }
-
-    return baseClass
-  }
-
-  const getMoodSummary = (dayData: any) => {
+  const getMoodSummary = (dayData: CalendarEntry) => {
     if (!dayData || !dayData.moodEntries || dayData.moodEntries.length === 0) {
       return null
     }
     
     // Get the most common mood for the day
     const moodCounts: Record<string, number> = {}
-    dayData.moodEntries.forEach((entry: any) => {
+    dayData.moodEntries.forEach((entry: MoodEntry) => {
       const mood = entry.mood || 'neutral'
       moodCounts[mood] = (moodCounts[mood] || 0) + 1
     })
@@ -119,10 +111,7 @@ export default function CalendarPage() {
     return <CalendarSkeleton />
   }
 
-  const days = eachDayOfInterval({ 
-    start: startOfMonth(currentDate), 
-    end: endOfMonth(currentDate) 
-  })
+
 
   // Add padding days for proper calendar layout
   const firstDay = startOfMonth(currentDate)

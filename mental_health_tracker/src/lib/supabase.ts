@@ -110,7 +110,7 @@ export type Database = {
           id: string
           user_id: string
           data_hash: string
-          insights_data: any
+          insights_data: Record<string, unknown>
           created_at: string
           updated_at: string
           expires_at: string
@@ -119,7 +119,7 @@ export type Database = {
           id?: string
           user_id: string
           data_hash: string
-          insights_data: any
+          insights_data: Record<string, unknown>
           created_at?: string
           updated_at?: string
           expires_at: string
@@ -128,7 +128,7 @@ export type Database = {
           id?: string
           user_id?: string
           data_hash?: string
-          insights_data?: any
+          insights_data?: Record<string, unknown>
           created_at?: string
           updated_at?: string
           expires_at?: string
@@ -136,4 +136,72 @@ export type Database = {
       }
     }
   }
+}
+
+export const fetchUserData = async (userId: string): Promise<{
+  moodEntries: Array<{
+    id: string;
+    user_id: string;
+    mood: string;
+    energy_level: number;
+    notes?: string;
+    created_at: string;
+  }>;
+  journalEntries: Array<{
+    id: string;
+    user_id: string;
+    title: string;
+    content: string;
+    created_at: string;
+  }>;
+}> => {
+  const { data: moodEntries } = await supabase
+    .from('mood_entries')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+
+  const { data: journalEntries } = await supabase
+    .from('journal_entries')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+
+  return {
+    moodEntries: moodEntries || [],
+    journalEntries: journalEntries || []
+  }
+}
+
+export const fetchUserProfile = async (userId: string): Promise<{
+  id: string;
+  email: string;
+  created_at: string;
+} | null> => {
+  const { data } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single()
+
+  return data
+}
+
+export const updateUserProfile = async (userId: string, updates: {
+  email?: string;
+  updated_at?: string;
+}): Promise<{
+  id: string;
+  email: string;
+  created_at: string;
+  updated_at: string;
+} | null> => {
+  const { data } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', userId)
+    .select()
+    .single()
+
+  return data
 } 

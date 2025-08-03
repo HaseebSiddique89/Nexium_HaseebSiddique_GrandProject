@@ -56,24 +56,16 @@ export const performanceMonitor = PerformanceMonitor.getInstance()
 /**
  * Performance decorator for measuring function execution time
  */
-export function measurePerformance(name: string) {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
-    const originalMethod = descriptor.value
-
-    descriptor.value = async function (...args: any[]) {
-      const stopTimer = performanceMonitor.startTimer(name)
-      try {
-        const result = await originalMethod.apply(this, args)
-        stopTimer()
-        return result
-      } catch (error) {
-        stopTimer()
-        throw error
-      }
-    }
-
-    return descriptor
-  }
+export const measurePerformance = async <T>(
+  operation: () => Promise<T>,
+  operationName: string
+): Promise<{ result: T; duration: number }> => {
+  const start = performance.now()
+  const result = await operation()
+  const duration = performance.now() - start
+  
+  console.log(`⏱️ ${operationName} took ${duration.toFixed(2)}ms`)
+  return { result, duration }
 }
 
 /**

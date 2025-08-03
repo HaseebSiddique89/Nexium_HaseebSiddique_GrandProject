@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { formatDate, getMoodEmoji } from '@/lib/utils'
-import { Plus, BookOpen, Calendar, Search, Tag, Sparkles, TrendingUp } from 'lucide-react'
+import { Plus, BookOpen, Calendar, Search, Tag, TrendingUp } from 'lucide-react'
 import { fetchUserDataOptimized } from '@/lib/data-optimization'
 
 interface JournalEntry {
@@ -17,6 +17,16 @@ interface JournalEntry {
   updated_at: string
 }
 
+interface DatabaseJournalEntry {
+  id: string
+  title: string
+  content: string
+  created_at: string
+  mood?: string
+  tags?: string[]
+  updated_at?: string
+}
+
 export default function JournalPage() {
   const { user } = useAuth()
   const [entries, setEntries] = useState<JournalEntry[]>([])
@@ -24,24 +34,34 @@ export default function JournalPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedMood, setSelectedMood] = useState<string>('all')
 
-  useEffect(() => {
-    if (user) {
-      fetchJournalEntries()
-    }
-  }, [user])
-
   const fetchJournalEntries = useCallback(async () => {
     if (!user) return
     
     try {
       const { journalEntries } = await fetchUserDataOptimized(user.id)
-      setEntries(journalEntries)
+      // Transform the data to match the JournalEntry interface
+      const transformedEntries = journalEntries.map((entry: DatabaseJournalEntry) => ({
+        id: entry.id,
+        title: entry.title || '',
+        content: entry.content || '',
+        mood: entry.mood || null,
+        tags: entry.tags || [],
+        created_at: entry.created_at,
+        updated_at: entry.updated_at || entry.created_at
+      }))
+      setEntries(transformedEntries)
     } catch (error) {
       console.error('Error fetching journal entries:', error)
     } finally {
       setLoading(false)
     }
   }, [user])
+
+  useEffect(() => {
+    if (user) {
+      fetchJournalEntries()
+    }
+  }, [user, fetchJournalEntries])
 
   const filteredEntries = entries.filter(entry => {
     const matchesSearch = entry.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -52,11 +72,6 @@ export default function JournalPage() {
     
     return matchesSearch && matchesMood
   })
-
-  const getUniqueTags = () => {
-    const allTags = entries.flatMap(entry => entry.tags)
-    return [...new Set(allTags)]
-  }
 
   const getUniqueMoods = () => {
     const moods = entries.map(entry => entry.mood).filter((mood): mood is string => mood !== null)
@@ -256,7 +271,7 @@ export default function JournalPage() {
           </div>
         ) : (
           <div className="divide-y divide-gray-200/50">
-            {filteredEntries.map((entry, index) => (
+            {filteredEntries.map((entry) => (
               <div key={entry.id} className="p-6 hover:bg-gradient-to-r hover:from-gray-50/50 hover:to-white/50 transition-all duration-300">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">

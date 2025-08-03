@@ -1,20 +1,55 @@
 import { supabase } from './supabase'
 
+// Define the user data type
+type UserData = {
+  moodEntries: Array<{
+    id: string;
+    user_id: string;
+    mood: string;
+    energy_level: number;
+    notes?: string;
+    created_at: string;
+  }>;
+  journalEntries: Array<{
+    id: string;
+    user_id: string;
+    title: string;
+    content: string;
+    created_at: string;
+  }>;
+}
+
+// Define the analytics data type
+type AnalyticsData = {
+  moodEntries: Array<{
+    mood: string;
+    energy_level: number;
+    created_at: string;
+  }>;
+  journalEntries: Array<{
+    title: string;
+    content: string;
+    mood?: string;
+    tags?: string;
+    created_at: string;
+  }>;
+}
+
 // In-memory cache for better performance
-const dataCache = new Map<string, { data: any; timestamp: number; ttl: number }>()
+const dataCache = new Map<string, { data: UserData | AnalyticsData; timestamp: number; ttl: number }>()
 
 // Cache TTL (Time To Live) - 5 minutes
 const CACHE_TTL = 5 * 60 * 1000
 
 // Optimized data fetching with caching
-export async function fetchUserDataOptimized(userId: string) {
+export const fetchUserDataOptimized = async (userId: string): Promise<UserData> => {
   const cacheKey = `user_data_${userId}`
   const cached = dataCache.get(cacheKey)
   
   // Return cached data if still valid
   if (cached && Date.now() - cached.timestamp < cached.ttl) {
     console.log('📦 Using cached user data')
-    return cached.data
+    return cached.data as UserData
   }
 
   console.log('🔄 Fetching fresh user data...')
@@ -56,13 +91,13 @@ export async function fetchUserDataOptimized(userId: string) {
 }
 
 // Optimized analytics data fetching
-export async function fetchAnalyticsDataOptimized(userId: string) {
+export async function fetchAnalyticsDataOptimized(userId: string): Promise<AnalyticsData> {
   const cacheKey = `analytics_data_${userId}`
   const cached = dataCache.get(cacheKey)
   
   if (cached && Date.now() - cached.timestamp < cached.ttl) {
     console.log('📦 Using cached analytics data')
-    return cached.data
+    return cached.data as AnalyticsData
   }
 
   console.log('🔄 Fetching fresh analytics data...')
@@ -127,7 +162,7 @@ export async function preloadCriticalData(userId: string) {
 // Performance monitoring
 export function getCacheStats() {
   const now = Date.now()
-  const validEntries = Array.from(dataCache.entries()).filter(([_, value]) => 
+  const validEntries = Array.from(dataCache.entries()).filter(([, value]) => 
     now - value.timestamp < value.ttl
   )
   

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -13,21 +13,10 @@ import {
   Brain,
   Target,
   Calendar,
-  Clock,
   Award,
-  Sparkles,
-  BarChart3,
-  LineChart,
-  PieChart,
-  Users,
   Star,
-  CheckCircle,
-  AlertTriangle,
   Plus,
   ArrowRight,
-  Eye,
-  Edit,
-  Trash2,
   BookOpen
 } from 'lucide-react'
 
@@ -52,13 +41,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (user) {
-      fetchDashboardData()
-    }
-  }, [user])
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     if (!user) return
 
     setLoading(true)
@@ -205,18 +188,15 @@ export default function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
 
-  const getMoodColor = (mood: string) => {
-    switch (mood) {
-      case 'excellent': return 'text-green-600 bg-green-100'
-      case 'good': return 'text-blue-600 bg-blue-100'
-      case 'neutral': return 'text-yellow-600 bg-yellow-100'
-      case 'bad': return 'text-orange-600 bg-orange-100'
-      case 'terrible': return 'text-red-600 bg-red-100'
-      default: return 'text-zinc-600 bg-zinc-100'
+  useEffect(() => {
+    if (user) {
+      fetchDashboardData()
     }
-  }
+  }, [user, fetchDashboardData])
+
+
 
   const getTrendIcon = (trend: 'up' | 'down' | 'stable') => {
     switch (trend) {
@@ -252,7 +232,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-zinc-900">Welcome back!</h1>
-          <p className="text-zinc-600 mt-2">Here's what's happening with your mental health journey.</p>
+          <p className="text-zinc-600 mt-2">Here&apos;s what&apos;s happening with your mental health journey.</p>
         </div>
         <div className="flex items-center space-x-4">
           <button className="flex items-center space-x-2 px-4 py-2 bg-zinc-100 text-zinc-700 rounded-xl hover:bg-zinc-200 transition-colors">
@@ -465,11 +445,12 @@ export default function DashboardPage() {
           
           <div className="space-y-4">
             {stats?.recentJournalEntries.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="h-12 w-12 bg-gradient-to-r from-zinc-100 to-zinc-200 rounded-xl flex items-center justify-center mx-auto mb-3">
-                  <Activity className="h-6 w-6 text-zinc-400" />
+              <div className="text-center space-y-4">
+                <div className="h-16 w-16 bg-gradient-to-r from-zinc-100 to-zinc-200 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                  <Activity className="h-8 w-8 text-zinc-400" />
                 </div>
-                <p className="text-zinc-500">No journal entries yet</p>
+                <p className="text-zinc-500">No recent activity</p>
+                <p className="text-sm text-zinc-400">Start tracking your mood and journal entries to see your activity here.</p>
               </div>
             ) : (
               stats?.recentJournalEntries.slice(0, 3).map((entry, index) => (

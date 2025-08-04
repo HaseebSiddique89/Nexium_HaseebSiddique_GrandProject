@@ -139,10 +139,10 @@ export default function JournalPage() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center space-x-3 mb-2">
-            <div className="h-10 w-10 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
+            <div className="h-10 w-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
               <BookOpen className="h-6 w-6 text-white" />
             </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">Journal</h1>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">Journal</h1>
           </div>
           <p className="text-gray-600 mt-2">
             Write and reflect on your thoughts, feelings, and experiences.
@@ -150,7 +150,7 @@ export default function JournalPage() {
         </div>
         <Link
           href="/dashboard/journal/new"
-          className="group inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-xl hover:from-purple-600 hover:to-pink-700 transition-all duration-300 hover:scale-105 hover-lift shadow-lg hover:shadow-xl focus-ring"
+          className="group inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 hover:scale-105 hover-lift shadow-lg hover:shadow-xl focus-ring"
         >
           <Plus className="h-5 w-5 mr-2 group-hover:rotate-90 transition-transform duration-300" />
           New Entry
@@ -163,13 +163,13 @@ export default function JournalPage() {
           {/* Search */}
           <div className="flex-1">
             <div className="relative group">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-hover:text-purple-500 transition-colors duration-300" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-hover:text-green-500 transition-colors duration-300" />
               <input
                 type="text"
                 placeholder="Search entries..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 placeholder-gray-500/50 text-black transition-all duration-300 hover:border-purple-300 focus-ring"
+                className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 placeholder-gray-500/50 text-black transition-all duration-300 hover:border-green-300 focus-ring"
               />
             </div>
           </div>
@@ -179,7 +179,7 @@ export default function JournalPage() {
             <select
               value={selectedMood}
               onChange={(e) => setSelectedMood(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-300 hover:border-purple-300 focus-ring"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 hover:border-green-300 focus-ring"
               style={{ color: "rgba(0, 0, 0, 0.5)" }}
             >
               <option value="all">All moods</option>
@@ -241,7 +241,7 @@ export default function JournalPage() {
       <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50">
         <div className="px-6 py-4 border-b border-gray-200/50">
           <div className="flex items-center space-x-3">
-            <TrendingUp className="h-5 w-5 text-purple-600" />
+            <TrendingUp className="h-5 w-5 text-green-600" />
             <h2 className="text-lg font-semibold text-gray-900">
               Journal Entries ({filteredEntries.length})
             </h2>
@@ -262,7 +262,7 @@ export default function JournalPage() {
             {entries.length === 0 && (
               <Link
                 href="/dashboard/journal/new"
-                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-xl hover:from-purple-600 hover:to-pink-700 transition-all duration-300 hover:scale-105 hover-lift shadow-lg hover:shadow-xl focus-ring"
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 hover:scale-105 hover-lift shadow-lg hover:shadow-xl focus-ring"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Write First Entry
@@ -276,7 +276,7 @@ export default function JournalPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-3">
-                      <h3 className="text-lg font-semibold text-gray-900 group-hover:text-purple-600 transition-colors duration-300">{entry.title}</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 group-hover:text-green-600 transition-colors duration-300">{entry.title}</h3>
                       {entry.mood && (
                         <span className="text-xl">{getMoodEmoji(entry.mood)}</span>
                       )}
@@ -296,7 +296,7 @@ export default function JournalPage() {
                             {entry.tags.slice(0, 3).map((tag, index) => (
                               <span
                                 key={index}
-                                className="px-3 py-1 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 text-xs rounded-full border border-purple-200/50"
+                                className="px-3 py-1 bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 text-xs rounded-full border border-green-200/50"
                               >
                                 {tag}
                               </span>
@@ -313,7 +313,7 @@ export default function JournalPage() {
                   </div>
                   <Link
                     href={`/dashboard/journal/${entry.id}`}
-                    className="ml-4 px-4 py-2 text-sm bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-300 hover:scale-105 hover-lift shadow-md hover:shadow-lg focus-ring"
+                    className="ml-4 px-4 py-2 text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-300 hover:scale-105 hover-lift shadow-md hover:shadow-lg focus-ring"
                   >
                     View
                   </Link>

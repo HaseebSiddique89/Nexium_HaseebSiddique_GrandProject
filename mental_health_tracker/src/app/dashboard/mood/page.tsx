@@ -164,7 +164,12 @@ export default function MoodPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-zinc-900">Mood Tracking</h1>
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="h-10 w-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+              <Heart className="h-6 w-6 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">Mood Tracking</h1>
+          </div>
           <p className="text-zinc-600 mt-2">Track your daily moods and energy levels to understand your patterns.</p>
         </div>
         <button

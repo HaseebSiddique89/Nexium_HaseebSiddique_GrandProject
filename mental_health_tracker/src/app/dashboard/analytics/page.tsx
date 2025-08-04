@@ -256,7 +256,12 @@ export default function AnalyticsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-zinc-900">Analytics</h1>
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+              <Activity className="h-6 w-6 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Analytics</h1>
+          </div>
           <p className="text-zinc-600 mt-2">Detailed insights into your mental health tracking patterns.</p>
         </div>
         <div className="flex items-center space-x-2 text-sm text-zinc-500">

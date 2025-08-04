@@ -65,6 +65,16 @@ export default function DashboardLayout({
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<Array<{
+    type: 'mood' | 'journal' | 'page'
+    id: string
+    title: string
+    subtitle: string
+    icon: React.ReactNode
+    action: () => void
+  }>>([])
+  const [searchOpen, setSearchOpen] = useState(false)
 
   // Authentication check - must be before any conditional returns
   useEffect(() => {
@@ -313,16 +323,27 @@ export default function DashboardLayout({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element
-      if (!target.closest('.user-menu') && !target.closest('.user-menu-button')) {
+      
+      // Close user menu if clicking outside
+      if (!target.closest('.user-menu')) {
         setUserMenuOpen(false)
       }
-      if (!target.closest('.notifications-menu') && !target.closest('.notifications-button')) {
+      
+      // Close notifications if clicking outside
+      if (!target.closest('.notifications-menu')) {
         setNotificationsOpen(false)
+      }
+      
+      // Close search dropdown if clicking outside
+      if (!target.closest('.search-container')) {
+        setSearchOpen(false)
       }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
   }, [])
 
   const handleSignOut = async () => {
@@ -345,6 +366,125 @@ export default function DashboardLayout({
 
   const markAllAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  }
+
+  // Search functionality
+  const performSearch = useCallback(async (query: string) => {
+    if (!query.trim() || !user) {
+      setSearchResults([])
+      return
+    }
+
+    const results: Array<{
+      type: 'mood' | 'journal' | 'page'
+      id: string
+      title: string
+      subtitle: string
+      icon: React.ReactNode
+      action: () => void
+    }> = []
+
+    try {
+      // Search mood entries
+      const { data: moodEntries } = await supabase
+        .from('mood_entries')
+        .select('*')
+        .eq('user_id', user.id)
+        .or(`mood.ilike.%${query}%,notes.ilike.%${query}%`)
+        .order('created_at', { ascending: false })
+        .limit(5)
+
+      // Search journal entries
+      const { data: journalEntries } = await supabase
+        .from('journal_entries')
+        .select('*')
+        .eq('user_id', user.id)
+        .or(`title.ilike.%${query}%,content.ilike.%${query}%`)
+        .order('created_at', { ascending: false })
+        .limit(5)
+
+      // Add mood results
+      moodEntries?.forEach(entry => {
+        results.push({
+          type: 'mood',
+          id: entry.id,
+          title: `${entry.mood.charAt(0).toUpperCase() + entry.mood.slice(1)} Mood`,
+          subtitle: entry.notes || `Energy: ${entry.energy_level}/10`,
+          icon: <Heart className="h-4 w-4 text-green-600" />,
+          action: () => router.push('/dashboard/mood')
+        })
+      })
+
+      // Add journal results
+      journalEntries?.forEach(entry => {
+        results.push({
+          type: 'journal',
+          id: entry.id,
+          title: entry.title || 'Untitled Entry',
+          subtitle: entry.content.substring(0, 50) + (entry.content.length > 50 ? '...' : ''),
+          icon: <BookOpen className="h-4 w-4 text-blue-600" />,
+          action: () => router.push('/dashboard/journal')
+        })
+      })
+
+      // Add page navigation results
+      const pages = [
+        { name: 'Dashboard', path: '/dashboard', icon: <Home className="h-4 w-4 text-zinc-600" /> },
+        { name: 'Mood Tracking', path: '/dashboard/mood', icon: <Heart className="h-4 w-4 text-green-600" /> },
+        { name: 'Journal', path: '/dashboard/journal', icon: <BookOpen className="h-4 w-4 text-blue-600" /> },
+        { name: 'Analytics', path: '/dashboard/analytics', icon: <Activity className="h-4 w-4 text-indigo-600" /> },
+        { name: 'AI Insights', path: '/dashboard/ai-insights', icon: <Brain className="h-4 w-4 text-purple-600" /> },
+        { name: 'Calendar', path: '/dashboard/calendar', icon: <Calendar className="h-4 w-4 text-orange-600" /> },
+        { name: 'Goals', path: '/dashboard/goals', icon: <Target className="h-4 w-4 text-red-600" /> }
+      ]
+
+      pages.forEach(page => {
+        if (page.name.toLowerCase().includes(query.toLowerCase())) {
+          results.push({
+            type: 'page',
+            id: page.path,
+            title: page.name,
+            subtitle: 'Navigate to page',
+            icon: page.icon,
+            action: () => router.push(page.path)
+          })
+        }
+      })
+
+      setSearchResults(results)
+    } catch (error) {
+      console.error('Search error:', error)
+      setSearchResults([])
+    }
+  }, [user, router])
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value
+    setSearchQuery(query)
+    setSearchOpen(query.length > 0)
+    performSearch(query)
+  }
+
+  const handleSearchResultClick = (result: {
+    type: 'mood' | 'journal' | 'page'
+    id: string
+    title: string
+    subtitle: string
+    icon: React.ReactNode
+    action: () => void
+  }) => {
+    result.action()
+    setSearchQuery('')
+    setSearchOpen(false)
+    setSearchResults([])
+  }
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setSearchQuery('')
+      setSearchOpen(false)
+      setSearchResults([])
+    }
   }
 
   const unreadCount = notifications.filter(n => !n.read).length
@@ -479,14 +619,45 @@ export default function DashboardLayout({
             </button>
 
             {/* Search Bar */}
-            <div className="flex-1 max-w-md mx-4 lg:mx-8">
+            <div className="flex-1 max-w-md mx-4 lg:mx-8 search-container">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-400" />
                 <input
                   type="text"
                   placeholder="Search..."
-                  className="w-full pl-10 pr-4 py-2 border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300"
+                  className="w-full pl-10 pr-4 py-2 border border-zinc-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 placeholder:text-black/50 text-black"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onFocus={() => searchQuery.length > 0 && setSearchOpen(true)}
+                  onKeyDown={handleSearchKeyDown}
                 />
+                
+                {/* Search Results Dropdown */}
+                {searchOpen && searchResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border border-zinc-200 py-2 z-50 max-h-96 overflow-y-auto">
+                    {searchResults.map((result) => (
+                      <button
+                        key={`${result.type}-${result.id}`}
+                        onClick={() => handleSearchResultClick(result)}
+                        className="w-full px-4 py-3 text-left hover:bg-zinc-50 transition-colors border-b border-zinc-100 last:border-b-0"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-shrink-0">
+                            {result.icon}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-zinc-900 truncate">
+                              {result.title}
+                            </p>
+                            <p className="text-xs text-zinc-500 truncate">
+                              {result.subtitle}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -641,4 +812,4 @@ export default function DashboardLayout({
       </div>
     </div>
   )
-} 
+}

@@ -513,6 +513,8 @@ export default function DashboardLayout({
         return 'Calendar'
       case '/dashboard/ai-insights':
         return 'AI Insights'
+      case '/dashboard/goals':
+        return 'Goals'
       case '/dashboard/settings':
         return 'Settings'
       default:
